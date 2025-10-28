@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import { Message, CSVdata } from "@/components/types";
+import { Message, CSVdata, TimelineEvent } from "@/components/types";
 import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
@@ -56,6 +56,7 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0); // 0-100 percentage
   const [totalDuration, setTotalDuration] = useState(0); // in seconds
+  const [participantInfo, setParticipantInfo] = useState<{gender: string, age: string, race: string} | null>(null);
   const totalDurationRef = useRef(0); // Ref for immediate access in RAF loop
   const speed = useRef(1.0);
   const playing = useRef(false);
@@ -64,8 +65,7 @@ export default function Home() {
   const [recording, setRecording] = useState<string>("");
   const allMessagesRef = useRef<Message[]>([]); // Store all messages for seek functionality
   const messagePlaybackActive = useRef(false); // Track if message playback loop is running
-  const copyTimestampsRef = useRef<number[]>([]); // Store copy event timestamps
-  const pasteTimestampsRef = useRef<number[]>([]); // Store paste event timestamps
+  const timelineEventsRef = useRef<TimelineEvent[]>([]); // Store all timeline events (gpt_inquiry, copy, paste)
   const pasteTextsRef = useRef<string[]>([]); // Store paste event text content
   const [showCopyToast, setShowCopyToast] = useState(false);
   const lastCopyIndexRef = useRef(0); // Track which copy events we've already shown
@@ -87,9 +87,9 @@ export default function Home() {
         });
 
         // Check for copy events and show toast
-        const copyTimestamps = copyTimestampsRef.current;
-        for (let i = lastCopyIndexRef.current; i < copyTimestamps.length; i++) {
-          if (copyTimestamps[i] <= currentTimeSec) {
+        const copyEvents = timelineEventsRef.current.filter(e => e.type === 'copy');
+        for (let i = lastCopyIndexRef.current; i < copyEvents.length; i++) {
+          if (copyEvents[i].time <= currentTimeSec) {
             // Found a new copy event that just occurred
             setShowCopyToast(true);
             lastCopyIndexRef.current = i + 1;
@@ -137,8 +137,7 @@ const handleLoadArrays = async (): Promise<void> => {
 
     const newRecordings: string[] = [];
     const newMessages: Message[] = [];
-    const newCopyTimestamps: number[] = [];
-    const newPasteTimestamps: number[] = [];
+    const newTimelineEvents: TimelineEvent[] = [];
     const newPasteTexts: string[] = [];
     let messageIndex = 0;
 
@@ -147,12 +146,12 @@ const handleLoadArrays = async (): Promise<void> => {
         case "editor":
           // Track copy events (op_type 'y')
           if (element.op_type === 'y') {
-            newCopyTimestamps.push(element.time);
+            newTimelineEvents.push({ time: element.time, type: 'copy' });
           }
 
           // Track paste events (op_type 'p')
           if (element.op_type === 'p') {
-            newPasteTimestamps.push(element.time);
+            newTimelineEvents.push({ time: element.time, type: 'paste' });
             // Store the pasted text from the 'add' column
             newPasteTexts.push(element.add || "");
           }
@@ -197,6 +196,12 @@ const handleLoadArrays = async (): Promise<void> => {
             };
             messageIndex += 1;
             newMessages.push(newMessage);
+
+            // Only add GPT inquiry to timeline (not responses)
+            if (element.op_type === "gpt_inquiry") {
+              newTimelineEvents.push({ time: element.time, type: 'gpt_inquiry' });
+            }
+
             console.log(`Message ${messageIndex}: time=${element.time}, content=${element.selected_text?.substring(0, 50)}...`);
           }
           break;
@@ -210,12 +215,17 @@ const handleLoadArrays = async (): Promise<void> => {
     // Store all messages for seek functionality
     allMessagesRef.current = newMessages;
 
-    // Store copy and paste timestamps and texts
-    copyTimestampsRef.current = newCopyTimestamps;
-    pasteTimestampsRef.current = newPasteTimestamps;
+    // Sort timeline events by time and store
+    newTimelineEvents.sort((a, b) => a.time - b.time);
+    timelineEventsRef.current = newTimelineEvents;
+
+    // Store paste texts
     pasteTextsRef.current = newPasteTexts;
-    console.log("Copy events found:", newCopyTimestamps.length);
-    console.log("Paste events found:", newPasteTimestamps.length);
+
+    console.log("Timeline events found:", newTimelineEvents.length);
+    console.log("  - GPT inquiries:", newTimelineEvents.filter(e => e.type === 'gpt_inquiry').length);
+    console.log("  - Copy events:", newTimelineEvents.filter(e => e.type === 'copy').length);
+    console.log("  - Paste events:", newTimelineEvents.filter(e => e.type === 'paste').length);
 
     // Combine all recording objects into one JSON array string
     const combinedRecording = "[" + newRecordings.join(", ") + "]";
@@ -332,10 +342,10 @@ const playMessages = (messagesToPlay: Message[]): void => {
     console.log("Target time:", targetTimeSec.toFixed(2), "seconds");
 
     // Reset copy event tracking based on seek position
-    const copyTimestamps = copyTimestampsRef.current;
+    const copyEvents = timelineEventsRef.current.filter(e => e.type === 'copy');
     let newCopyIndex = 0;
-    for (let i = 0; i < copyTimestamps.length; i++) {
-      if (copyTimestamps[i] <= targetTimeSec) {
+    for (let i = 0; i < copyEvents.length; i++) {
+      if (copyEvents[i].time <= targetTimeSec) {
         newCopyIndex = i + 1;
       } else {
         break;
@@ -480,9 +490,7 @@ useEffect(() => {
         onSeek={handleSeek}
         currentProgress={currentProgress}
         totalDuration={totalDuration}
-        messageTimestamps={allMessagesRef.current.map(msg => msg.time)}
-        copyTimestamps={copyTimestampsRef.current}
-        pasteTimestamps={pasteTimestampsRef.current}
+        timelineEvents={timelineEventsRef.current}
       />
     </div>
   </div>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Select from "react-select";
 import { FaPlay, FaPause } from "react-icons/fa6";
 import { FaTachometerAlt } from "react-icons/fa";
+import { TimelineEvent } from "./types";
 
 const speeds = [
   { value: 0.1, label: ".1x" },
@@ -21,9 +22,7 @@ interface SliderProps {
   onSeek: (percentage: number) => void;
   currentProgress?: number; // 0-100 percentage
   totalDuration?: number; // in seconds
-  messageTimestamps?: number[]; // Array of message times in seconds
-  copyTimestamps?: number[]; // Array of copy event times in seconds
-  pasteTimestamps?: number[]; // Array of paste event times in seconds
+  timelineEvents?: TimelineEvent[]; // Array of timeline events
 }
 
 export default function SliderComponent({
@@ -32,15 +31,16 @@ export default function SliderComponent({
   onSeek,
   currentProgress = 0,
   totalDuration = 0,
-  messageTimestamps = [],
-  copyTimestamps = [],
-  pasteTimestamps = []
+  timelineEvents = []
 }: SliderProps) {
   const [isClient, setIsClient] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [selectedSpeed, setSelectedSpeed] = useState(speeds[2]); // Default to 1x (index 2)
+  const [hoveredEvent, setHoveredEvent] = useState<{label: string, time: string, x: number, y: number} | null>(null);
   const seekBarRef = useRef(null);
-  
+
   const handleSpeedChange = (selectedOption) => {
+    setSelectedSpeed(selectedOption);
     onSpeedChange(selectedOption.value);
   }
 
@@ -137,7 +137,7 @@ export default function SliderComponent({
               className="pr-1"
               options={speeds}
               menuPlacement="auto"
-              defaultValue={speeds[2]}
+              value={selectedSpeed}
               onChange={handleSpeedChange}
               isSearchable={false}
               components={{
@@ -180,103 +180,69 @@ export default function SliderComponent({
           )}
           </span>
           {/* Seek bar */}
-          <span className="seek-bar-container w-full flex items-center">
-            <div 
+          <div className="seek-bar-container flex-grow flex items-center">
+            <div
               ref={seekBarRef}
               onClick={handleSeek}
               onMouseDown={handleMouseDown}
-              className="seek-bar h-2 rounded cursor-pointer items-center w-full relative flex bg-gray-600"
+              className="seek-bar h-2 rounded cursor-pointer w-full relative bg-gray-600"
             >
               {/* Progress fill */}
               <div
-                className="h-full bg-[#2196f3] rounded"
+                className="absolute h-full bg-[#2196f3] rounded"
                 style={{
                   width: `${currentProgress}%`,
-                  transition: 'width 0.1s ease'
+                  transition: 'width 0.1s ease',
+                  top: 0,
+                  left: 0
                 }}
               />
 
-              {/* Message markers (teal triangles) */}
-              {messageTimestamps.map((timestamp, index) => {
-                const percentage = totalDuration > 0 ? (timestamp / totalDuration) * 100 : 0;
-                return (
-                  <div
-                    key={`message-marker-${index}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: `${percentage}%`,
-                      top: '-15px',
-                      transform: 'translateX(-50%)',
-                      zIndex: 10
-                    }}
-                    title={`Message at ${Math.floor(timestamp / 60)}:${Math.floor(timestamp % 60).toString().padStart(2, '0')}`}
-                  >
-                    {/* Teal triangle pointing down */}
-                    <div
-                      style={{
-                        width: 0,
-                        height: 0,
-                        borderLeft: '8.75px solid transparent',
-                        borderRight: '8.75px solid transparent',
-                        borderTop: '14px solid #10a37f',
-                      }}
-                    />
-                  </div>
-                );
-              })}
+              {/* Timeline event markers */}
+              {timelineEvents.map((event, index) => {
+                const percentage = totalDuration > 0 ? (event.time / totalDuration) * 100 : 0;
 
-              {/* Copy markers (amber triangles) */}
-              {copyTimestamps.map((timestamp, index) => {
-                const percentage = totalDuration > 0 ? (timestamp / totalDuration) * 100 : 0;
-                return (
-                  <div
-                    key={`copy-marker-${index}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: `${percentage}%`,
-                      top: '-15px',
-                      transform: 'translateX(-50%)',
-                      zIndex: 10
-                    }}
-                    title={`Copy at ${Math.floor(timestamp / 60)}:${Math.floor(timestamp % 60).toString().padStart(2, '0')}`}
-                  >
-                    {/* Amber triangle pointing down */}
-                    <div
-                      style={{
-                        width: 0,
-                        height: 0,
-                        borderLeft: '8.75px solid transparent',
-                        borderRight: '8.75px solid transparent',
-                        borderTop: '14px solid #f59e0b',
-                      }}
-                    />
-                  </div>
-                );
-              })}
+                // Determine color and label based on event type
+                let color = '';
+                let label = '';
+                switch (event.type) {
+                  case 'gpt_inquiry':
+                    color = '#10a37f'; // Teal/green
+                    label = 'GPT Event';
+                    break;
+                  case 'copy':
+                    color = '#f59e0b'; // Orange/amber
+                    label = 'Copy';
+                    break;
+                  case 'paste':
+                    color = '#8b5cf6'; // Purple/violet
+                    label = 'Paste';
+                    break;
+                }
 
-              {/* Paste markers (violet triangles) */}
-              {pasteTimestamps.map((timestamp, index) => {
-                const percentage = totalDuration > 0 ? (timestamp / totalDuration) * 100 : 0;
+                const timeString = `${Math.floor(event.time / 60)}:${Math.floor(event.time % 60).toString().padStart(2, '0')}`;
+
                 return (
                   <div
-                    key={`paste-marker-${index}`}
-                    className="absolute pointer-events-none"
+                    key={`timeline-marker-${event.type}-${index}`}
+                    className="absolute cursor-pointer"
                     style={{
                       left: `${percentage}%`,
                       top: '-15px',
                       transform: 'translateX(-50%)',
                       zIndex: 10
                     }}
-                    title={`Paste at ${Math.floor(timestamp / 60)}:${Math.floor(timestamp % 60).toString().padStart(2, '0')}`}
+                    onMouseEnter={(e) => setHoveredEvent({ label, time: timeString, x: e.clientX, y: e.clientY })}
+                    onMouseMove={(e) => setHoveredEvent({ label, time: timeString, x: e.clientX, y: e.clientY })}
+                    onMouseLeave={() => setHoveredEvent(null)}
                   >
-                    {/* Violet triangle pointing down */}
                     <div
                       style={{
                         width: 0,
                         height: 0,
                         borderLeft: '8.75px solid transparent',
                         borderRight: '8.75px solid transparent',
-                        borderTop: '14px solid #8b5cf6',
+                        borderTop: `14px solid ${color}`,
                       }}
                     />
                   </div>
@@ -284,15 +250,34 @@ export default function SliderComponent({
               })}
 
               {/* Circle handle */}
-              <div className="handle w-3 h-3 bg-blue-500 rounded-full shadow-md flex -translate-x-2"
+              <div className="handle absolute w-3 h-3 bg-blue-500 rounded-full shadow-md"
                 style={{
                   left: `${currentProgress}%`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)'
                 }}>
                 </div>
             </div>
-            <p className="pl-3 pb-1">{currentTimeFormatted}/{totalTimeFormatted}</p>
-          </span>
+          </div>
+          {/* Time display in separate container with fixed width */}
+          <div className="flex-shrink-0 w-20 pl-3 pb-1">
+            <p>{currentTimeFormatted}/{totalTimeFormatted}</p>
+          </div>
       </div>
+
+      {/* Custom Tooltip */}
+      {hoveredEvent && (
+        <div
+          className="fixed bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 pointer-events-none"
+          style={{
+            left: `${hoveredEvent.x + 10}px`,
+            top: `${hoveredEvent.y - 60}px`,
+          }}
+        >
+          <div className="text-sm font-semibold">{hoveredEvent.label}</div>
+          <div className="text-xs text-gray-300">at {hoveredEvent.time}</div>
+        </div>
+      )}
       </div>
     </>
   );

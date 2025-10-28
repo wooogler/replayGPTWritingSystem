@@ -74,8 +74,8 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
         </svg>
         ChatGPT Conversation
       </h3>
-      <div className="flex flex-col border border-gray-200 rounded-lg !min-w-full overflow-y-auto overflow-x-hidden flex-grow">
-        <div className="mb-auto !min-w-full">
+      <div className="flex flex-col border border-gray-200 rounded-lg bg-white overflow-y-auto overflow-x-hidden flex-grow">
+        <div className="flex flex-col gap-4 p-4">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-400 py-12">
               <p className="text-sm">No messages yet</p>
@@ -84,31 +84,51 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
             messages.map((m) => (
               <div
                 key={m.id}
-                className={
-                  m.role === "user"
-                    ? "w-full py-4 px-4 bg-gray-50 border-b border-gray-200"
-                    : "w-full py-4 px-4 bg-white border-b border-gray-200"
-                }
+                className="flex w-full"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <Image
-                    width={32}
-                    height={32}
-                    src={
-                      m.role === "user"
-                        ? "/images/user-icon.png"
-                        : "/images/chatgpt-icon.png"
-                    }
-                    alt={m.role === "user" ? "User" : "ChatGPT"}
-                    className="rounded-full"
-                  />
-                  <div className="font-semibold text-sm text-gray-700">
-                    {m.role === "user" ? "User" : "ChatGPT"}
+                {/* User messages aligned right */}
+                {m.role === "user" ? (
+                  <div className="ml-auto w-[90%]">
+                    <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                      {/* Header with icon and name */}
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
+                        <Image
+                          width={24}
+                          height={24}
+                          src="/images/user-icon.png"
+                          alt="User"
+                          className="rounded-full"
+                        />
+                        <span className="font-semibold text-sm">User</span>
+                      </div>
+                      {/* Message content */}
+                      <div className="whitespace-pre-wrap text-[20px]">
+                        {highlightPastedText(m.content)}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="whitespace-pre-wrap text-gray-800 ml-11 text-xl">
-                  {highlightPastedText(m.content)}
-                </div>
+                ) : (
+                  /* Assistant messages aligned left */
+                  <div className="mr-auto w-[90%]">
+                    <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                      {/* Header with icon and name */}
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
+                        <Image
+                          width={24}
+                          height={24}
+                          src="/images/chatgpt-icon.png"
+                          alt="ChatGPT"
+                          className="rounded-full"
+                        />
+                        <span className="font-semibold text-sm">ChatGPT</span>
+                      </div>
+                      {/* Message content */}
+                      <div className="whitespace-pre-wrap text-[20px]">
+                        {highlightPastedText(m.content)}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

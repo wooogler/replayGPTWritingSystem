@@ -5,6 +5,11 @@ export type Message = {
   time: number;
 };
 
+export type TimelineEvent = {
+  time: number;
+  type: "gpt_inquiry" | "copy" | "paste";
+};
+
 export type CSVdata = Array<{
   idx: number;
   essay_num: number;
