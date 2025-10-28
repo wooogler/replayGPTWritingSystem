@@ -20,9 +20,9 @@ interface SliderProps {
   onSpeedChange: (newSpeed: number) => void;
   onPlayChange: (isPlaying: boolean) => void;
   onSeek: (percentage: number) => void;
-  currentProgress?: number; // 0-100 percentage
-  totalDuration?: number; // in seconds
-  timelineEvents?: TimelineEvent[]; // Array of timeline events
+  currentProgress?: number;
+  totalDuration?: number; // seconds
+  timelineEvents?: TimelineEvent[];
 }
 
 export default function SliderComponent({
@@ -69,10 +69,9 @@ export default function SliderComponent({
   };
 
   const handleMouseDown = (e) => {
-  e.preventDefault(); // Prevents text selection while dragging
+  e.preventDefault(); 
 
   const handleMouseMove = (e) => {
-    // Find the seek bar container (parent of the handle)
     const seekBar = document.querySelector('.seek-bar');
     if (!seekBar) return;
 
@@ -87,12 +86,9 @@ export default function SliderComponent({
   };
 
   const handleMouseUp = () => {
-    // Clean up: remove the global listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
-
-  // Add global listeners so dragging works anywhere on the page
   document.addEventListener('mousemove', handleMouseMove);
   document.addEventListener('mouseup', handleMouseUp);
 };
@@ -202,20 +198,20 @@ export default function SliderComponent({
               {timelineEvents.map((event, index) => {
                 const percentage = totalDuration > 0 ? (event.time / totalDuration) * 100 : 0;
 
-                // Determine color and label based on event type
+                // Determine color and 0label based on event type
                 let color = '';
                 let label = '';
                 switch (event.type) {
                   case 'gpt_inquiry':
-                    color = '#10a37f'; // Teal/green
+                    color = '#10a37f';
                     label = 'GPT Event';
                     break;
                   case 'copy':
-                    color = '#f59e0b'; // Orange/amber
+                    color = '#f59e0b';
                     label = 'Copy';
                     break;
                   case 'paste':
-                    color = '#8b5cf6'; // Purple/violet
+                    color = '#8b5cf6';
                     label = 'Paste';
                     break;
                 }
@@ -259,7 +255,7 @@ export default function SliderComponent({
                 </div>
             </div>
           </div>
-          {/* Time display in separate container with fixed width */}
+          {/* Time display */}
           <div className="flex-shrink-0 w-20 pl-3 pb-1">
             <p>{currentTimeFormatted}/{totalTimeFormatted}</p>
           </div>

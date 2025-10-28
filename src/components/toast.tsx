@@ -5,7 +5,7 @@ interface ToastProps {
   message: string;
   isVisible: boolean;
   onClose: () => void;
-  duration?: number; // Duration in milliseconds
+  duration?: number;
 }
 
 export default function Toast({ message, isVisible, onClose, duration = 2000 }: ToastProps) {
@@ -16,7 +16,7 @@ export default function Toast({ message, isVisible, onClose, duration = 2000 }: 
       setShow(true);
       const timer = setTimeout(() => {
         setShow(false);
-        setTimeout(onClose, 300); // Wait for fade out animation
+        setTimeout(onClose, 300);
       }, duration);
 
       return () => clearTimeout(timer);

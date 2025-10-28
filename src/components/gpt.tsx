@@ -32,7 +32,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
       return content;
     }
 
-    // Check if any paste text matches (or is contained in) this message
+    // Check if any paste text matches this message
     let hasMatch = false;
     for (const pasteText of pasteTexts) {
       if (pasteText && content.includes(pasteText.trim())) {
@@ -86,11 +86,11 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                 key={m.id}
                 className="flex w-full"
               >
-                {/* User messages aligned right */}
+                {/* User messages */}
                 {m.role === "user" ? (
                   <div className="ml-auto w-[90%]">
                     <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
-                      {/* Header with icon and name */}
+                      {/* Header */}
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
                         <Image
                           width={24}
@@ -108,10 +108,10 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                     </div>
                   </div>
                 ) : (
-                  /* Assistant messages aligned left */
+                  /* Assistant messages */
                   <div className="mr-auto w-[90%]">
                     <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
-                      {/* Header with icon and name */}
+                      {/* Header */}
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
                         <Image
                           width={24}

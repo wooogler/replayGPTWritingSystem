@@ -23,18 +23,18 @@ async function loadCSV() {
     // Fetch the CSV file
     const response = await fetch("/data/replay_data.csv");
     const csvText = await response.text();
-    
+
     // Parse CSV using Papaparse
     const result = Papa.parse(csvText, {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
     });
-    
+
     if (result.errors.length > 0) {
       console.warn("CSV parsing warnings:", result.errors);
     }
-    
+
     console.log("Parsed CSV data:", result.data);
     console.log("Header:", result.meta.fields);
     return result.data;
@@ -48,27 +48,25 @@ async function loadCSV() {
 export default function Home() {
   const searchParams = useSearchParams();
   const participantParam = searchParams.get('participant') || 'p1';
-  // Convert p1, p2, p3 to essay_num 1, 2, 3
   const essayNum = parseInt(participantParam.replace('p', ''));
 
   const [messReplay, setMessReplay] = useState<Message[]>([]);
   const [isPromptVisible, setisPromptVisible] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [currentProgress, setCurrentProgress] = useState(0); // 0-100 percentage
-  const [totalDuration, setTotalDuration] = useState(0); // in seconds
-  const [participantInfo, setParticipantInfo] = useState<{gender: string, age: string, race: string} | null>(null);
-  const totalDurationRef = useRef(0); // Ref for immediate access in RAF loop
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0); 
+  const totalDurationRef = useRef(0); 
   const speed = useRef(1.0);
   const playing = useRef(false);
   const playCodeMirrorRef = useRef<ReplayHandle>(null);
   const codePlayerRef = useRef<CodePlay | null>(null);
   const [recording, setRecording] = useState<string>("");
-  const allMessagesRef = useRef<Message[]>([]); // Store all messages for seek functionality
-  const messagePlaybackActive = useRef(false); // Track if message playback loop is running
-  const timelineEventsRef = useRef<TimelineEvent[]>([]); // Store all timeline events (gpt_inquiry, copy, paste)
-  const pasteTextsRef = useRef<string[]>([]); // Store paste event text content
+  const allMessagesRef = useRef<Message[]>([]);
+  const messagePlaybackActive = useRef(false);
+  const timelineEventsRef = useRef<TimelineEvent[]>([]);
+  const pasteTextsRef = useRef<string[]>([]);
   const [showCopyToast, setShowCopyToast] = useState(false);
-  const lastCopyIndexRef = useRef(0); // Track which copy events we've already shown
+  const lastCopyIndexRef = useRef(0);
 
   const startProgressTracking = () => {
     const updateProgress = () => {
@@ -77,10 +75,10 @@ export default function Home() {
         const currentTimeSec = currentTimeMs / 1000;
         const progress = (currentTimeSec / totalDurationRef.current) * 100;
 
-        // Use functional update to avoid stale closure issues
+        // Functional updating to avoid unnecessary re-renders
         setCurrentProgress(prev => {
           const newProgress = Math.min(progress, 100);
-          if (Math.abs(newProgress - prev) > 0.01) { // Only update if changed by more than 0.01%
+          if (Math.abs(newProgress - prev) > 0.01) {
             return newProgress;
           }
           return prev;
@@ -90,11 +88,10 @@ export default function Home() {
         const copyEvents = timelineEventsRef.current.filter(e => e.type === 'copy');
         for (let i = lastCopyIndexRef.current; i < copyEvents.length; i++) {
           if (copyEvents[i].time <= currentTimeSec) {
-            // Found a new copy event that just occurred
             setShowCopyToast(true);
             lastCopyIndexRef.current = i + 1;
           } else {
-            break; // Timestamps are in order, so we can stop
+            break;
           }
         }
       }
@@ -144,37 +141,31 @@ const handleLoadArrays = async (): Promise<void> => {
     for(const element of data) {
       switch(element.op_loc) {
         case "editor":
-          // Track copy events (op_type 'y')
+          // Track copy and paste events for timeline rendering
           if (element.op_type === 'y') {
             newTimelineEvents.push({ time: element.time, type: 'copy' });
           }
 
-          // Track paste events (op_type 'p')
           if (element.op_type === 'p') {
             newTimelineEvents.push({ time: element.time, type: 'paste' });
-            // Store the pasted text from the 'add' column
             newPasteTexts.push(element.add || "");
           }
 
           let record = element.recording_obj;
 
-          // Skip if recording_obj is null or undefined
           if (!record) {
             console.warn("Skipping null recording_obj for element");
             break;
           }
 
           // Convert single quotes to double quotes for valid JSON
-          // First, escape any double quotes that appear inside string values
           record = record.replace(/: '([\s\S]*?)'/g, (match, content) => {
-            // Don't escape if this is an array starter
             if (match === ": '[") return match;
-            // Escape double quotes in the content (but preserve existing backslash escapes like \n)
             const escaped = content.replace(/"/g, '\\"');
             return `: '${escaped}'`;
           });
 
-          // Now replace structural single quotes with double quotes
+          // Replace structural single quotes with double quotes
           record = record.replace(/\{'/g, '{"');
           record = record.replace(/':/g, '":');
           record = record.replace(/, '/g, ', "');
@@ -197,7 +188,7 @@ const handleLoadArrays = async (): Promise<void> => {
             messageIndex += 1;
             newMessages.push(newMessage);
 
-            // Only add GPT inquiry to timeline (not responses)
+            // Add GPT inquiry events to timeline
             if (element.op_type === "gpt_inquiry") {
               newTimelineEvents.push({ time: element.time, type: 'gpt_inquiry' });
             }
@@ -209,7 +200,6 @@ const handleLoadArrays = async (): Promise<void> => {
 
     }
 
-    // Log total messages found
     console.log("Total messages found:", newMessages.length);
 
     // Store all messages for seek functionality
@@ -227,35 +217,32 @@ const handleLoadArrays = async (): Promise<void> => {
     console.log("  - Copy events:", newTimelineEvents.filter(e => e.type === 'copy').length);
     console.log("  - Paste events:", newTimelineEvents.filter(e => e.type === 'paste').length);
 
-    // Combine all recording objects into one JSON array string
     const combinedRecording = "[" + newRecordings.join(", ") + "]";
     setRecording(combinedRecording);
 
-    // Validate JSON before passing to CodePlay
-    try {
-      JSON.parse(combinedRecording);
-    } catch (e) {
-      console.error("Invalid JSON generated:", e);
-      return;
-    }
+    // try {
+    //   JSON.parse(combinedRecording);
+    // } catch (e) {
+    //   console.error("Invalid JSON generated:", e);
+    //   return;
+    // }
 
-    // Initialize CodePlay with operations
+    // Initialize CodePlayer
     const codePlayer = new CodePlay(playCodeMirrorRef.current?.getEditor()!, {
       autoplay: false,
       speed: speed.current
-      // No maxDelay - preserve original pauses during playback
     });
     codePlayerRef.current = codePlayer;
     codePlayer.addOperations(combinedRecording);
 
-    // Get total duration from CodePlay (returns milliseconds)
+    // Get total duration
     const durationMs = codePlayer.getDuration();
-    const duration = durationMs / 1000; // Convert to seconds
-    totalDurationRef.current = duration; // Set ref immediately for RAF loop
-    setTotalDuration(duration); // Set state for UI display
+    const duration = durationMs / 1000;
+    totalDurationRef.current = duration;
+    setTotalDuration(duration);
     console.log("Total duration:", duration, "seconds (", durationMs, "ms)");
 
-    // Start message playback with the collected messages
+    // Start message playback
     playMessages(newMessages);
 
     // Start progress tracking
@@ -271,10 +258,9 @@ const playMessages = (messagesToPlay: Message[]): void => {
 
   console.log("Starting message playback with", messagesToPlay.length, "messages");
 
-  // Mark as active
   messagePlaybackActive.current = true;
 
-  // Continuously sync messages with current playback time
+  // Sync messages with current playback time
   const syncMessages = () => {
     if (!messagePlaybackActive.current) return;
 
@@ -283,10 +269,10 @@ const playMessages = (messagesToPlay: Message[]): void => {
       const currentTimeMs = codePlayerRef.current.getCurrentTime() || 0;
       const currentTimeSec = currentTimeMs / 1000;
 
-      // Find ALL messages that should be visible at current time
+      // Find messages that should be visible at current time
       const messagesToShow = allMessagesRef.current.filter(msg => msg.time <= currentTimeSec);
 
-      // Update messages (React will only re-render if the array length changed)
+      // Update messages
       setMessReplay(prev => {
         if (prev.length !== messagesToShow.length) {
           return messagesToShow;
@@ -295,11 +281,9 @@ const playMessages = (messagesToPlay: Message[]): void => {
       });
     }
 
-    // Continue looping
     requestAnimationFrame(syncMessages);
   };
 
-  // Start the sync loop
   requestAnimationFrame(syncMessages);
 };
 
@@ -307,7 +291,7 @@ const playMessages = (messagesToPlay: Message[]): void => {
     console.log("Speed changed to:", newSpeed);
     speed.current = newSpeed;
 
-    // Update CodePlay speed if it exists
+    // Update CodePlay speed
     if (codePlayerRef.current) {
       codePlayerRef.current.setSpeed(newSpeed);
     }
@@ -318,7 +302,7 @@ const playMessages = (messagesToPlay: Message[]): void => {
     console.log("Play state changed to:", isPlaying);
     playing.current = isPlaying;
 
-    // Control CodePlay playback if it exists
+    // Control CodePlay playback
     if (codePlayerRef.current) {
       if (isPlaying) {
         codePlayerRef.current.play();
@@ -335,7 +319,7 @@ const playMessages = (messagesToPlay: Message[]): void => {
 
     const codePlayer = codePlayerRef.current;
 
-    // Calculate target time in seconds
+    // Calculate target time
     const targetTimeSec = (percentage / 100) * totalDuration;
     const targetTimeMs = targetTimeSec * 1000;
 
@@ -356,25 +340,21 @@ const playMessages = (messagesToPlay: Message[]): void => {
     // Save current playback state
     const wasPlaying = codePlayer.getStatus() === 'PLAY';
 
-    // Use built-in seek() which internally uses speed=0 (fastest possible)
-    // This processes operations with 0ms setTimeout delay (as fast as JS event loop allows)
     codePlayer.seek(targetTimeMs);
 
-    // Poll to detect when seeking is complete
+    // Detect when seeking is complete
     const checkSeekComplete = () => {
       const currentTime = codePlayer.getCurrentTime();
       const timeDiff = Math.abs(currentTime - targetTimeMs);
 
-      // If we're within 50ms of target or paused, seek is complete
-      if (timeDiff < 50 || codePlayer.getStatus() === 'PAUSE') {
-        // Restore original playing state
+      // Restore original playing state
+      if (timeDiff < 10 || codePlayer.getStatus() === "PAUSE") {
         if (wasPlaying) {
           codePlayer.play();
         }
 
         console.log("Seek complete, playing:", wasPlaying);
       } else {
-        // Keep checking every 5ms
         setTimeout(checkSeekComplete, 5);
       }
     };
@@ -382,7 +362,7 @@ const playMessages = (messagesToPlay: Message[]): void => {
     // Start checking
     setTimeout(checkSeekComplete, 5);
 
-    // Update progress immediately
+    // Update progress
     setCurrentProgress(percentage);
 
     console.log(`Seeking to ${targetTimeSec.toFixed(2)}s`);
@@ -391,11 +371,11 @@ const playMessages = (messagesToPlay: Message[]): void => {
 useEffect(() => {
   let attempts = 0;
   const maxAttempts = 20;
-  
+
   const checkEditor = setInterval(() => {
     const editor = playCodeMirrorRef.current?.getEditor();
     attempts++;
-    
+
     if (editor) {
       console.log(`Editor ready, loading participant ${participantParam}`);
       clearInterval(checkEditor);
@@ -452,7 +432,7 @@ useEffect(() => {
     </div>
   </div>
 
-  {/* Toggle button */}
+  {/* Toggle Prompt button */}
   <button
     onClick={() => setisPromptVisible(!isPromptVisible)}
     className={`bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 h-fit flex items-center justify-center shadow-xl hover:shadow-2xl transition-all z-50 flex-shrink-0 self-start ${

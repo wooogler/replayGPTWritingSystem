@@ -3,7 +3,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import type CodeMirror from 'codemirror';
 
 interface Props {
-  // Any other props you need
+  // In case we need to add any props later
 }
 
 export interface ReplayHandle {
@@ -16,7 +16,7 @@ const Replay = forwardRef<ReplayHandle, Props>((props, ref) => {
   const cmInstance = useRef<CodeMirror.Editor | null>(null);
   const isInitialized = useRef(false); // Add this flag
 
-  // Expose the CodeMirror instance to parent
+  // Send CodeMirror to Page.tsx
   useImperativeHandle(ref, () => ({
     getEditor: () => cmInstance.current,
     testEditor: () => {
@@ -48,11 +48,11 @@ const Replay = forwardRef<ReplayHandle, Props>((props, ref) => {
       cmInstance.current = CM.fromTextArea(editorRef.current!, {
         mode: 'null',
         lineNumbers: false,
-        readOnly: true, // Prevent user from editing - only CodePlay can modify
+        readOnly: true,
         lineWrapping: true,
       });
 
-      // Apply styles to the CodeMirror wrapper
+      // Styling adjustments
       if (cmInstance.current) {
         const wrapper = cmInstance.current.getWrapperElement();
         wrapper.style.height = '100%';
@@ -61,7 +61,6 @@ const Replay = forwardRef<ReplayHandle, Props>((props, ref) => {
         wrapper.style.borderStyle = 'solid';
         wrapper.style.fontSize = '20px';
 
-        // Force the scroll container to have a fixed height
         const scroller = wrapper.querySelector('.CodeMirror-scroll') as HTMLElement;
         if (scroller) {
           scroller.style.maxHeight = '100%';

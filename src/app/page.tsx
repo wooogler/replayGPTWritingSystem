@@ -2,25 +2,79 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Select from "react-select";
+import Papa from "papaparse";
+import HorizontalBar from "@/components/horizontalBar";
 
-// Generate participants for all essay_nums (0-75)
-const participants = Array.from({ length: 77 }, (_, i) => ({
-  value: `p${i}`,
-  label: `Participant ${i+1}`,
-}));
+interface ParticipantOption {
+  value: string;
+  label: string;
+  gender?: string;
+  age?: string;
+  race?: string;
+}
 
 export default function LandingPage() {
-  const [selectedParticipant, setSelectedParticipant] = useState(participants[0]);
+  const [participants, setParticipants] = useState<ParticipantOption[]>([]);
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantOption | null>(null);
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     setIsClient(true);
+
+    // Load participant info from CSV
+    const loadParticipantInfo = async () => {
+      try {
+        const response = await fetch("/data/part_info.csv");
+        const csvText = await response.text();
+
+        const result = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+        });
+
+        // Create participants array with demographic info
+        const participantOptions: ParticipantOption[] = Array.from({ length: 77 }, (_, i) => {
+          const participantData: any = result.data.find((row: any) => parseInt(row.id) === i);
+
+          if (participantData) {
+            return {
+              value: `p${i}`,
+              label: `Participant ${i + 1} (${participantData.Race}, ${participantData.Gender}, ${participantData.Age})`,
+              gender: participantData.Gender,
+              age: participantData.Age,
+              race: participantData.Race
+            };
+          }
+
+          return {
+            value: `p${i}`,
+            label: `Participant ${i + 1}`,
+          };
+        });
+
+        setParticipants(participantOptions);
+        setSelectedParticipant(participantOptions[0]);
+      } catch (error) {
+        console.error("Error loading participant info:", error);
+        // Fallback to basic participants without demographic info
+        const basicParticipants = Array.from({ length: 77 }, (_, i) => ({
+          value: `p${i}`,
+          label: `Participant ${i + 1}`,
+        }));
+        setParticipants(basicParticipants);
+        setSelectedParticipant(basicParticipants[0]);
+      }
+    };
+
+    loadParticipantInfo();
   }, []);
 
   const handleStart = () => {
     // Navigate to the replay page with the selected participant
-    router.push(`/replay?participant=${selectedParticipant.value}`);
+    if (selectedParticipant) {
+      router.push(`/replay?participant=${selectedParticipant.value}`);
+    }
   };
 
   return (
@@ -103,6 +157,13 @@ export default function LandingPage() {
                 Loading...
               </div>
             )}
+          </div>
+
+          {/* Horizontal Bar Graphs */}
+          <div className="mb-6 space-y-2">
+            <HorizontalBar label="Metric 1" current={75} max={100} />
+            <HorizontalBar label="Metric 2" current={50} max={150} />
+            <HorizontalBar label="Metric 3" current={200} max={200} color="#10a37f" />
           </div>
 
           {/* Start Button */}
