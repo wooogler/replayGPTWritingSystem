@@ -1,4 +1,4 @@
-# Replay Website for *Project_NAME*
+# Replay Website for *PROJECT_NAME*
 
 ## Overview
 
@@ -6,7 +6,7 @@ This project hosts a website for replaying student written essays, allowing user
 
 ## Demo
 
-A demo is available at this [demo](https://example.com)
+A demo is available at [demo](https://example.com)
 
 ## Installation (Optional)
 
