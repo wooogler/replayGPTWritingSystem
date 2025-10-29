@@ -7,6 +7,7 @@ import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
 import Toast from "@/components/toast";
+import Legend from "@/components/legend";
 import { CodePlay } from "codemirror-record";
 import dynamic from 'next/dynamic';
 import type { ReplayHandle } from "@/components/replay";
@@ -53,6 +54,7 @@ export default function Home() {
 
   const [messReplay, setMessReplay] = useState<Message[]>([]);
   const [isPromptVisible, setisPromptVisible] = useState(false);
+  const [isLegendVisible, setIsLegendVisible] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
@@ -571,17 +573,41 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Controls footer */}
-      <div className="flex w-full justify-center fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-3 px-6">
-        <div className="w-full">
-          <SliderComponent
-            onSpeedChange={handleSpeedChange}
-            onPlayChange={handlePlayChange}
-            onSeek={handleSeek}
-            currentProgress={currentProgress}
-            totalDuration={totalDuration}
-            timelineEvents={timelineEventsRef.current}
-          />
+      {/* Controls footer with Legend */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-3 px-6">
+        {/* Slide-up Legend Panel - Positioned absolutely above footer */}
+        <div
+          className={`absolute right-6 bg-gray-50 rounded-t-lg border border-gray-200 shadow-xl transition-all duration-300 overflow-hidden ${
+            isLegendVisible ? "bottom-full mb-0 opacity-100" : "bottom-0 opacity-0 pointer-events-none"
+          }`}
+          style={{ width: '320px' }}
+        >
+          <div className="p-4">
+            <Legend />
+          </div>
+        </div>
+
+        {/* Controls Section */}
+        <div className="flex items-center w-full justify-center">
+          <div className="flex-grow max-w-[calc(100%-120px)] mr-2">
+            <SliderComponent
+              onSpeedChange={handleSpeedChange}
+              onPlayChange={handlePlayChange}
+              onSeek={handleSeek}
+              currentProgress={currentProgress}
+              totalDuration={totalDuration}
+              timelineEvents={timelineEventsRef.current}
+            />
+          </div>
+          {/* Toggle Legend button */}
+          <button
+            onClick={() => setIsLegendVisible(!isLegendVisible)}
+            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 flex items-center justify-center shadow-lg hover:shadow-xl transition-all flex-shrink-0"
+          >
+            <span className="text-sm font-medium">
+              Legend {isLegendVisible ? "▼" : "▲"}
+            </span>
+          </button>
         </div>
       </div>
     </>

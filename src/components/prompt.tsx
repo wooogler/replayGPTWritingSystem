@@ -4,7 +4,7 @@ export default function Prompt() {
   return (
     <>
       <h3 className="flex justify-center text-4xl">Prompt</h3>
-      <div className="question flex flex-col mt-4 mb-3 flex-grow border-solid border-2 border-gray-300 gap-4 px-3 overflow-scroll">
+      <div className="question flex flex-col mt-4 mb-3 flex-grow border border-gray-200 rounded-lg gap-4 px-3 overflow-scroll">
         <span className="body-text-small">
           We will describe an issue and provide three different perspectives on the issue. You are asked to read and consider the issue and perspectives, state your own perspective on the issue, and analyze the relationship between your perspective and at least one other perspective on the issue.
         </span>

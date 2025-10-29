@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Image from "next/image";
 import { Message } from "@/components/types";
 
@@ -26,6 +26,14 @@ const sleep = (seconds : number) => {
 };
 
 export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
   // Function to check if any paste text matches this message content
   const highlightPastedText = (content: string): React.ReactNode => {
     if (!pasteTexts || pasteTexts.length === 0) {
@@ -81,56 +89,60 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
               <p className="text-sm">No messages yet</p>
             </div>
           ) : (
-            messages.map((m) => (
-              <div
-                key={m.id}
-                className="flex w-full"
-              >
-                {/* User messages */}
-                {m.role === "user" ? (
-                  <div className="ml-auto w-[90%]">
-                    <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
-                        <Image
-                          width={24}
-                          height={24}
-                          src="/images/user-icon.png"
-                          alt="User"
-                          className="rounded-full"
-                        />
-                        <span className="font-semibold text-sm">User</span>
-                      </div>
-                      {/* Message content */}
-                      <div className="whitespace-pre-wrap text-[20px]">
-                        {highlightPastedText(m.content)}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Assistant messages */
-                  <div className="mr-auto w-[90%]">
-                    <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
-                        <Image
-                          width={24}
-                          height={24}
-                          src="/images/chatgpt-icon.png"
-                          alt="ChatGPT"
-                          className="rounded-full"
-                        />
-                        <span className="font-semibold text-sm">ChatGPT</span>
-                      </div>
-                      {/* Message content */}
-                      <div className="whitespace-pre-wrap text-[20px]">
-                        {highlightPastedText(m.content)}
+            <>
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex w-full"
+                >
+                  {/* User messages */}
+                  {m.role === "user" ? (
+                    <div className="ml-auto w-[90%]">
+                      <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                        {/* Header */}
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
+                          <Image
+                            width={24}
+                            height={24}
+                            src="/images/user-icon.png"
+                            alt="User"
+                            className="rounded-full"
+                          />
+                          <span className="font-semibold text-sm">User</span>
+                        </div>
+                        {/* Message content */}
+                        <div className="whitespace-pre-wrap text-[20px]">
+                          {highlightPastedText(m.content)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))
+                  ) : (
+                    /* Assistant messages */
+                    <div className="mr-auto w-[90%]">
+                      <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                        {/* Header */}
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
+                          <Image
+                            width={24}
+                            height={24}
+                            src="/images/chatgpt-icon.png"
+                            alt="ChatGPT"
+                            className="rounded-full"
+                          />
+                          <span className="font-semibold text-sm">ChatGPT</span>
+                        </div>
+                        {/* Message content */}
+                        <div className="whitespace-pre-wrap text-[20px]">
+                          {highlightPastedText(m.content)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {/* Invisible div for auto-scroll anchor */}
+              <div ref={messagesEndRef} />
+            </>
           )}
         </div>
       </div>

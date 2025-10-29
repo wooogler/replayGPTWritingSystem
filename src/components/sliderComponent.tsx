@@ -262,7 +262,7 @@ export default function SliderComponent({
             </div>
           </div>
           {/* Time display */}
-          <div className="flex-shrink-0 w-20 pl-3 pb-1">
+          <div className="flex-shrink-0 w-20 pl-1 pb-1">
             <p>{currentTimeFormatted}/{totalTimeFormatted}</p>
           </div>
       </div>

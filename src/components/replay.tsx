@@ -57,8 +57,8 @@ const Replay = forwardRef<ReplayHandle, Props>((props, ref) => {
         const wrapper = cmInstance.current.getWrapperElement();
         wrapper.style.height = '100%';
         wrapper.style.width = '100%';
-        wrapper.style.border = '2px solid rgb(209, 213, 219)';
-        wrapper.style.borderStyle = 'solid';
+        wrapper.style.border = '1px solid rgb(229, 231, 235)';
+        wrapper.style.borderRadius = '0.5rem';
         wrapper.style.fontSize = '20px';
 
         const scroller = wrapper.querySelector('.CodeMirror-scroll') as HTMLElement;
