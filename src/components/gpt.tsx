@@ -7,58 +7,58 @@ type GPTProps = {
   pasteTexts?: string[];
 };
 
-const sleep = (seconds : number) => {
-  let timeoutId: NodeJS.Timeout;
-  let rejectFn: (reason?: any) => void;
-
-  const promise = new Promise<void>((resolve, reject) => {
-    rejectFn = reject;
-    timeoutId = setTimeout(resolve, seconds * 1000);
-  });
-
-  return {
-  promise,
-  cancel: () => {
-    clearTimeout(timeoutId);
-    rejectFn(new Error('Sleep cancelled'));
-  }
-};
-};
-
 export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-  // Function to check if any paste text matches this message content
+
+  // Function to highlight pasted text portions within message content
   const highlightPastedText = (content: string): React.ReactNode => {
     if (!pasteTexts || pasteTexts.length === 0) {
       return content;
     }
 
-    // Check if any paste text matches this message
-    let hasMatch = false;
+    let result: React.ReactNode = content;
+    let highlightCount = 0;
+
     for (const pasteText of pasteTexts) {
-      if (pasteText && content.includes(pasteText.trim())) {
-        hasMatch = true;
-        break;
+      if (!pasteText || pasteText.trim().length === 0) continue;
+
+      const trimmedPaste = pasteText.trim();
+
+      // Convert paste text format to match message format:
+      const formattedPaste = trimmedPaste.replace(/\\n/g, '\n');
+      console.log(formattedPaste.length)
+
+      const normalizedPaste = formattedPaste.replace(/\s+/g, ' ').slice(0,formattedPaste.length - 6);
+      const lowerPaste = normalizedPaste.toLowerCase();
+
+      if (typeof result === 'string') {
+        const normalizedContent = result.replace(/\s+/g, ' ');
+        const lowerContent = normalizedContent.toLowerCase();
+
+        const matchIndex = lowerContent.indexOf(lowerPaste);
+        if (matchIndex !== -1) {
+          highlightCount++;
+
+          result = (
+            <span
+              key={`highlight-${highlightCount}`}
+              className="rounded px-1"
+              style={{ backgroundColor: 'rgba(255, 220, 60, 0.60)' }}
+            >
+              {result}
+            </span>
+          );
+        }
       }
     }
 
-    // If there's a match, wrap in a highlight span
-    if (hasMatch) {
-      return (
-        <span className="bg-amber-50 rounded px-1">
-          {content}
-        </span>
-      );
-    }
-
-    return content;
+    return result;
   };
 
 
@@ -90,7 +90,8 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
             </div>
           ) : (
             <>
-              {messages.map((m) => (
+                {messages.map((m) => (
+                console.log(m.content),
                 <div
                   key={m.id}
                   className="flex w-full"

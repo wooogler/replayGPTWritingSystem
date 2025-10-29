@@ -6,14 +6,13 @@ import { FaTachometerAlt } from "react-icons/fa";
 import { TimelineEvent } from "./types";
 
 const speeds = [
-  { value: 0.1, label: ".1x" },
   { value: 0.5, label: ".5x" },
   { value: 1, label: "1x" },
   { value: 1.5, label: "1.5x" },
   { value: 2, label: "2x" },
   { value: 3, label: "3x" },
+  { value: 5, label: "5x" },
   { value: 10, label: "10x" },
-  { value: 100, label: "100x" },
 ];
 
 interface SliderProps {
@@ -41,7 +40,7 @@ export default function SliderComponent({
 
   // Ensure speed is reset to 1x on mount
   useEffect(() => {
-    setSelectedSpeed(speeds[2]);
+    setSelectedSpeed(speeds[1]);
     onSpeedChange(1);
   }, []);
 
@@ -262,8 +261,10 @@ export default function SliderComponent({
             </div>
           </div>
           {/* Time display */}
-          <div className="flex-shrink-0 w-20 pl-1 pb-1">
-            <p>{currentTimeFormatted}/{totalTimeFormatted}</p>
+          <div className="flex items-center flex-shrink-0 pl-1 pb-1">
+            <div className="w-10 text-right">{currentTimeFormatted}</div>
+            <div className="px-1">/</div>
+            <div className="w-10 text-left">{totalTimeFormatted}</div>
           </div>
       </div>
 

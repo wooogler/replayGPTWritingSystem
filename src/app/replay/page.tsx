@@ -166,6 +166,8 @@ export default function Home() {
       "  - Paste events:",
       newTimelineEvents.filter((e) => e.type === "paste").length
     );
+    console.log("Paste texts captured:", newPasteTexts.length);
+    console.log("Sample paste texts:", newPasteTexts.slice(0, 3));
   }
 
 
