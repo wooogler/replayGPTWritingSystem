@@ -89,7 +89,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                 {/* User messages */}
                 {m.role === "user" ? (
                   <div className="ml-auto w-[90%]">
-                    <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                    <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
                       {/* Header */}
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
                         <Image
@@ -110,7 +110,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                 ) : (
                   /* Assistant messages */
                   <div className="mr-auto w-[90%]">
-                    <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
+                    <div className="bg-gray-200 text-gray-900 rounded-2xl px-4 py-3 shadow-sm">
                       {/* Header */}
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
                         <Image

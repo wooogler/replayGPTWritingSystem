@@ -39,6 +39,12 @@ export default function SliderComponent({
   const [hoveredEvent, setHoveredEvent] = useState<{label: string, time: string, x: number, y: number} | null>(null);
   const seekBarRef = useRef(null);
 
+  // Ensure speed is reset to 1x on mount
+  useEffect(() => {
+    setSelectedSpeed(speeds[2]);
+    onSpeedChange(1);
+  }, []);
+
   const handleSpeedChange = (selectedOption) => {
     setSelectedSpeed(selectedOption);
     onSpeedChange(selectedOption.value);
