@@ -11,6 +11,10 @@ interface ParticipantOption {
   gender?: string;
   age?: string;
   race?: string;
+  po?: number;  // Perceived Ownership
+  userWords?: number;
+  gptWords?: number;
+  totalWords?: number;
 }
 
 export default function LandingPage() {
@@ -33,7 +37,7 @@ export default function LandingPage() {
           skipEmptyLines: true,
         });
 
-        // Create participants array with demographic info
+        // Create participants array with demographic info and metrics
         const participantOptions: ParticipantOption[] = Array.from({ length: 77 }, (_, i) => {
           const participantData: any = result.data.find((row: any) => parseInt(row.id) === i);
 
@@ -43,7 +47,11 @@ export default function LandingPage() {
               label: `Participant ${i + 1} (${participantData.Race}, ${participantData.Gender}, ${participantData.Age})`,
               gender: participantData.Gender,
               age: participantData.Age,
-              race: participantData.Race
+              race: participantData.Race,
+              po: parseFloat(participantData["Percieved Ownership"]) || 0,
+              userWords: parseInt(participantData["User Final Words"]) || 0,
+              gptWords: parseInt(participantData["GPT Final Words"]) || 0,
+              totalWords: parseInt(participantData["Total Words"]) || 0,
             };
           }
 
@@ -150,6 +158,10 @@ export default function LandingPage() {
                       border: "1px solid #6366f1",
                     },
                   }),
+                  menu: (provided) => ({
+                    ...provided,
+                    zIndex: 9999,
+                  }),
                 }}
               />
             ) : (
@@ -160,11 +172,28 @@ export default function LandingPage() {
           </div>
 
           {/* Horizontal Bar Graphs */}
-          <div className="mb-6 space-y-2">
-            <HorizontalBar label="Metric 1" current={75} max={100} />
-            <HorizontalBar label="Metric 2" current={50} max={150} />
-            <HorizontalBar label="Metric 3" current={200} max={200} color="#10a37f" />
-          </div>
+          {selectedParticipant && (
+            <div className="mb-6 space-y-2">
+              <HorizontalBar
+                label="Perceived Ownership"
+                current={selectedParticipant.po || 0}
+                max={7}
+                color="#6366f1"
+              />
+              <HorizontalBar
+                label="User Words"
+                current={selectedParticipant.userWords || 0}
+                max={selectedParticipant.totalWords || 1}
+                color="#8b5cf6"
+              />
+              <HorizontalBar
+                label="GPT Words"
+                current={selectedParticipant.gptWords || 0}
+                max={selectedParticipant.totalWords || 1}
+                color="#10a37f"
+              />
+            </div>
+          )}
 
           {/* Start Button */}
           <button
