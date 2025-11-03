@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import { Message, CSVdata, TimelineEvent } from "@/components/types";
+import { Message, CSVdata, TimelineEvent, ParticipantStats } from "@/components/types";
 import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
@@ -11,6 +11,7 @@ import Legend from "@/components/legend";
 import { CodePlay } from "codemirror-record";
 import dynamic from 'next/dynamic';
 import type { ReplayHandle } from "@/components/replay";
+import HorizontalBar from "@/components/horizontalBar";
 
 
 const Replay = dynamic(() => import('@/components/replay'), {
@@ -71,6 +72,13 @@ export default function Home() {
   const [showCopyToast, setShowCopyToast] = useState(false);
   const lastCopyIndexRef = useRef(0);
   const dataArrayRef = useRef<any[]>([]);
+  const [isGraphsVisible, setIsGraphsVisible] = useState(false);
+  const [participantStats, setParticipantStats] = useState<ParticipantStats>({
+    po: 0,
+    userWords: 0,
+    gptWords: 0,
+    totalWords: 0,
+  });
 
   const startProgressTracking = () => {
     const updateProgress = () => {
@@ -107,6 +115,34 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Load participant statistics
+    const loadParticipantStats = async () => {
+      try {
+        const response = await fetch("/data/part_info.csv");
+        const csvText = await response.text();
+
+        const result = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+        });
+
+        const participantData: any = result.data.find((row: any) => parseInt(row.id) === essayNum);
+
+        if (participantData) {
+          setParticipantStats({
+            po: parseFloat(participantData["Percieved Ownership"]) || 0,
+            userWords: parseInt(participantData["User Final Words"]) || 0,
+            gptWords: parseInt(participantData["GPT Final Words"]) || 0,
+            totalWords: parseInt(participantData["Total Words"]) || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error loading participant stats:", error);
+      }
+    };
+
+    loadParticipantStats();
+
     let attempts = 0;
     const maxAttempts = 20;
 
@@ -573,16 +609,65 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Toggle Graphs button */}
+        <button
+          onClick={() => setIsGraphsVisible(!isGraphsVisible)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 h-fit w-28 flex items-center justify-center shadow-xl hover:shadow-2xl transition-all z-50 flex-shrink-0 self-start ml-2"
+        >
+          <span className="text-sm font-medium">
+            {isGraphsVisible ? "Hide →" : "← Graphs"}
+          </span>
+        </button>
       </main>
+
+      {/* Sliding Graph Panel */}
+      <div
+        className={`fixed bg-white border-l border-gray-200 overflow-y-auto transition-all duration-300 z-40 ${
+          isGraphsVisible ? "right-0" : "-right-[25%]"
+        }`}
+        style={{
+          width: '25%',
+          top: '5.5rem',
+          bottom: '3.6rem',
+          height: 'auto'
+        }}
+      >
+        <div className="h-full flex flex-col p-6 pt-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-8">Participant Statistics</h2>
+          <div className="space-y-4">
+            <HorizontalBar
+              label="Perceived Ownership"
+              current={participantStats.po}
+              max={7.0}
+              color="#6366f1"
+            />
+            <HorizontalBar
+              label="User Words"
+              current={participantStats.userWords}
+              max={participantStats.totalWords || 1}
+              color="#8b5cf6"
+            />
+            <HorizontalBar
+              label="GPT Words"
+              current={participantStats.gptWords}
+              max={participantStats.totalWords || 1}
+              color="#10a37f"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Controls footer with Legend */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-3 px-6">
-        {/* Slide-up Legend Panel - Positioned absolutely above footer */}
+        {/* Slide-up Legend Panel */}
         <div
           className={`absolute right-6 bg-gray-50 rounded-t-lg border border-gray-200 shadow-xl transition-all duration-300 overflow-hidden ${
-            isLegendVisible ? "bottom-full mb-0 opacity-100" : "bottom-0 opacity-0 pointer-events-none"
+            isLegendVisible
+              ? "bottom-full mb-0 opacity-100"
+              : "bottom-0 opacity-0 pointer-events-none"
           }`}
-          style={{ width: '320px' }}
+          style={{ width: "320px" }}
         >
           <div className="p-4">
             <Legend />

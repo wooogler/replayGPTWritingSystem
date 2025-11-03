@@ -10,6 +10,13 @@ export type TimelineEvent = {
   type: "gpt_inquiry" | "copy" | "paste";
 };
 
+export type ParticipantStats = {
+  po: number;
+  userWords: number;
+  gptWords: number;
+  totalWords: number;
+};
+
 export type CSVdata = Array<{
   idx: number;
   essay_num: number;

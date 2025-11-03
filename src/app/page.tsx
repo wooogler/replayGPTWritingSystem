@@ -4,17 +4,14 @@ import { useRouter } from "next/navigation";
 import Select from "react-select";
 import Papa from "papaparse";
 import HorizontalBar from "@/components/horizontalBar";
+import { ParticipantStats } from "@/components/types";
 
-interface ParticipantOption {
+interface ParticipantOption extends Partial<ParticipantStats> {
   value: string;
   label: string;
   gender?: string;
   age?: string;
   race?: string;
-  po?: number;  // Perceived Ownership
-  userWords?: number;
-  gptWords?: number;
-  totalWords?: number;
 }
 
 export default function LandingPage() {
