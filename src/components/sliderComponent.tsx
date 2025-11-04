@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Select from "react-select";
 import { FaPlay, FaPause } from "react-icons/fa6";
-import { FaTachometerAlt } from "react-icons/fa";
+import { FaTachometerAlt, FaFastBackward, FaFastForward } from "react-icons/fa";
 import { TimelineEvent } from "./types";
 
 const speeds = [
@@ -60,6 +60,16 @@ export default function SliderComponent({
     setPlaying(false);
     onPlayChange(false);
   }
+
+  const handleJumpToStart = () => {
+    console.log("Jump to start");
+    onSeek(0);
+  };
+
+  const handleJumpToEnd = () => {
+    console.log("Jump to end");
+    onSeek(100);
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -130,6 +140,22 @@ export default function SliderComponent({
             onClick={handlePause}
           >
             <FaPause size={21} />
+          </button>
+          <button
+            id="jump-to-start"
+            onClick={handleJumpToStart}
+            className="px-2"
+            title="Jump to Start"
+          >
+            <FaFastBackward size={19} />
+          </button>
+          <button
+            id="jump-to-end"
+            onClick={handleJumpToEnd}
+            className="px-2"
+            title="Jump to End"
+          >
+            <FaFastForward size={19} />
           </button>
           <span suppressHydrationWarning={true}>
             {isClient ? (

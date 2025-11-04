@@ -15,6 +15,12 @@ export type ParticipantStats = {
   userWords: number;
   gptWords: number;
   totalWords: number;
+  selfEfficacy: number;
+  tamOverall: number;
+  csiTotal: number;
+  gptInquiry: number;
+  totalTime: number;
+  userPercent: number;
 };
 
 export type CSVdata = Array<{

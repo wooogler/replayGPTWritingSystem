@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { Message, CSVdata, TimelineEvent, ParticipantStats } from "@/components/types";
 import Prompt from "@/components/prompt";
@@ -11,7 +11,8 @@ import Legend from "@/components/legend";
 import { CodePlay } from "codemirror-record";
 import dynamic from 'next/dynamic';
 import type { ReplayHandle } from "@/components/replay";
-import HorizontalBar from "@/components/horizontalBar";
+import ParticipantStatsPanel from "@/components/participantStatsPanel";
+import Select from "react-select";
 
 
 const Replay = dynamic(() => import('@/components/replay'), {
@@ -48,9 +49,15 @@ async function loadCSV() {
 
 //TODO: 
 
+interface ParticipantOption {
+  value: string;
+  label: string;
+}
+
 export default function Home() {
   const searchParams = useSearchParams();
-  const participantParam = searchParams.get("participant") || "p1";
+  const router = useRouter();
+  const participantParam = searchParams.get("participant") || "p0";
   const essayNum = parseInt(participantParam.replace("p", ""));
 
   const [messReplay, setMessReplay] = useState<Message[]>([]);
@@ -73,11 +80,19 @@ export default function Home() {
   const lastCopyIndexRef = useRef(0);
   const dataArrayRef = useRef<any[]>([]);
   const [isGraphsVisible, setIsGraphsVisible] = useState(false);
+  const [participants, setParticipants] = useState<ParticipantOption[]>([]);
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantOption | null>(null);
   const [participantStats, setParticipantStats] = useState<ParticipantStats>({
     po: 0,
     userWords: 0,
     gptWords: 0,
     totalWords: 0,
+    selfEfficacy: 0,
+    tamOverall: 0,
+    csiTotal: 0,
+    gptInquiry: 0,
+    totalTime: 0,
+    userPercent: 0,
   });
 
   const startProgressTracking = () => {
@@ -114,7 +129,52 @@ export default function Home() {
     requestAnimationFrame(updateProgress);
   };
 
+  // Load participant list once on mount
   useEffect(() => {
+    setIsClient(true);
+
+    const loadParticipants = async () => {
+      try {
+        const response = await fetch("/data/part_info.csv");
+        const csvText = await response.text();
+
+        const result = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+        });
+
+        const participantOptions: ParticipantOption[] = Array.from({ length: 77 }, (_, i) => {
+          const participantData: any = result.data.find((row: any) => parseInt(row.id) === i);
+
+          if (participantData) {
+            return {
+              value: `p${i}`,
+              label: `Participant ${i + 1} (${participantData.Race}, ${participantData.Gender}, ${participantData.Age})`,
+            };
+          }
+
+          return {
+            value: `p${i}`,
+            label: `Participant ${i + 1}`,
+          };
+        });
+
+        setParticipants(participantOptions);
+      } catch (error) {
+        console.error("Error loading participants:", error);
+      }
+    };
+
+    loadParticipants();
+  }, []);
+
+  // Load participant-specific data when participant changes
+  useEffect(() => {
+    // Update selected participant in dropdown
+    if (participants.length > 0) {
+      setSelectedParticipant(participants[essayNum]);
+    }
+
     // Load participant statistics
     const loadParticipantStats = async () => {
       try {
@@ -134,6 +194,13 @@ export default function Home() {
             userWords: parseInt(participantData["User Final Words"]) || 0,
             gptWords: parseInt(participantData["GPT Final Words"]) || 0,
             totalWords: parseInt(participantData["Total Words"]) || 0,
+            selfEfficacy:
+              parseFloat(participantData["Self Efficacy Score"]) || 0,
+            tamOverall: parseFloat(participantData["TAM Overall"]) || 0,
+            csiTotal: parseFloat(participantData["CSI Total"]) || 0,
+            gptInquiry: parseInt(participantData["GPT Inquiry"]) || 0,
+            totalTime: parseFloat(participantData["Total Time"]) || 0,
+            userPercent: parseFloat(participantData["User Final %"]) || 0,
           });
         }
       } catch (error) {
@@ -142,6 +209,19 @@ export default function Home() {
     };
 
     loadParticipantStats();
+
+    // Reset playback state
+    setMessReplay([]);
+    setCurrentProgress(0);
+    setShowCopyToast(false);
+    lastCopyIndexRef.current = 0;
+    messagePlaybackActive.current = false;
+
+    // Stop any existing playback
+    if (codePlayerRef.current) {
+      codePlayerRef.current.pause();
+      codePlayerRef.current = null;
+    }
 
     let attempts = 0;
     const maxAttempts = 20;
@@ -167,7 +247,7 @@ export default function Home() {
     }, 200);
 
     return () => clearInterval(checkEditor);
-  }, []);
+  }, [essayNum, participantParam, participants]);
 
   const getTimelineEvents = (data) => {
     let newTimelineEvents: TimelineEvent[] = [];
@@ -312,6 +392,12 @@ export default function Home() {
       totalDurationRef.current = duration;
       setTotalDuration(duration);
       console.log("Total duration:", duration, "seconds (", durationMs, "ms)");
+
+      // Update participant stats with actual playback duration
+      setParticipantStats(prev => ({
+        ...prev,
+        totalTime: duration
+      }));
 
       // Start message playback
       playMessages(newMessages);
@@ -533,6 +619,13 @@ export default function Home() {
     setIsClient(true);
   }, []);
 
+  const handleParticipantChange = (option: ParticipantOption | null) => {
+    if (option) {
+      setSelectedParticipant(option);
+      router.push(`/replay?participant=${option.value}`);
+    }
+  };
+
   return (
     <>
       {/* Toast notification for copy events */}
@@ -546,12 +639,47 @@ export default function Home() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Essay Writing Replay - Participant {essayNum + 1}
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Interactive playback of essay writing sessions with ChatGPT
-          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900">
+                Essay Writing Replay
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Interactive playback of essay writing sessions with ChatGPT
+              </p>
+            </div>
+            <div className="w-96">
+              {isClient ? (
+                <Select
+                  options={participants}
+                  value={selectedParticipant}
+                  onChange={handleParticipantChange}
+                  isSearchable={true}
+                  className="text-black"
+                  styles={{
+                    control: (provided) => ({
+                      ...provided,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "0.5rem",
+                      padding: "0.25rem",
+                      boxShadow: "none",
+                      "&:hover": {
+                        border: "1px solid #6366f1",
+                      },
+                    }),
+                    menu: (provided) => ({
+                      ...provided,
+                      zIndex: 9999,
+                    }),
+                  }}
+                />
+              ) : (
+                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  Loading...
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -616,7 +744,7 @@ export default function Home() {
           className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 h-fit w-28 flex items-center justify-center shadow-xl hover:shadow-2xl transition-all z-50 flex-shrink-0 self-start ml-2"
         >
           <span className="text-sm font-medium">
-            {isGraphsVisible ? "Hide →" : "← Graphs"}
+            {isGraphsVisible ? "Hide →" : "Participant Stats"}
           </span>
         </button>
       </main>
@@ -635,26 +763,7 @@ export default function Home() {
       >
         <div className="h-full flex flex-col p-6 pt-8">
           <h2 className="text-xl font-bold text-gray-900 mb-8">Participant Statistics</h2>
-          <div className="space-y-4">
-            <HorizontalBar
-              label="Perceived Ownership"
-              current={participantStats.po}
-              max={7.0}
-              color="#6366f1"
-            />
-            <HorizontalBar
-              label="User Words"
-              current={participantStats.userWords}
-              max={participantStats.totalWords || 1}
-              color="#8b5cf6"
-            />
-            <HorizontalBar
-              label="GPT Words"
-              current={participantStats.gptWords}
-              max={participantStats.totalWords || 1}
-              color="#10a37f"
-            />
-          </div>
+          <ParticipantStatsPanel stats={participantStats} />
         </div>
       </div>
 

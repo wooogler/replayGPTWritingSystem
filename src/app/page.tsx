@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Select from "react-select";
 import Papa from "papaparse";
-import HorizontalBar from "@/components/horizontalBar";
+import ParticipantStatsPanel from "@/components/participantStatsPanel";
 import { ParticipantStats } from "@/components/types";
 
 interface ParticipantOption extends Partial<ParticipantStats> {
@@ -49,6 +49,12 @@ export default function LandingPage() {
               userWords: parseInt(participantData["User Final Words"]) || 0,
               gptWords: parseInt(participantData["GPT Final Words"]) || 0,
               totalWords: parseInt(participantData["Total Words"]) || 0,
+              selfEfficacy: parseFloat(participantData["Self Efficacy Score"]) || 0,
+              tamOverall: parseFloat(participantData["TAM Overall"]) || 0,
+              csiTotal: parseFloat(participantData["CSI Total"]) || 0,
+              gptInquiry: parseInt(participantData["GPT Inquiry"]) || 0,
+              totalTime: parseFloat(participantData["Total Time"]) || 0,
+              userPercent: parseFloat(participantData["User Final %"]) || 0,
             };
           }
 
@@ -110,18 +116,20 @@ export default function LandingPage() {
               "Start Replay Session" to begin.
             </p>
             <p>
-              To start the system, press the play button on the left side of the
-              screen. You can pause, rewind, and fast-forward through the
-              session to analyze the interaction between the participant and
-              ChatGPT.
+              Once you start a replay session, you'll see two main panels: the left panel displays the essay editor showing the participant's writing in real-time, and the right panel shows the conversation the participant had with ChatGPT. You can toggle the "Prompt" button on the left to view the prompt given to the participant. This prompt is the example ACT prompt.
+            </p>
+            <p>
+              Below the participant selection, you can view various statistics referring to the participant and the essay writing session. The bar graphs show the user's Self Efficacy, Technology Acceptance Model, Percieved Ownership, and Creativity Support Index scores. The table shows the number of inquiries made, total words in the essay, the proportion of user written words, and the total time taken to write the essay. The statistics are also shown in the essay replay page with the button on the right.
+            </p>
+            <p>
+              To start the replay, press the play button on the left side of the
+              screen. You can pause, jump to the start and end of the essay, and set the playback speed through the
+              session to analyze the interaction between the participant and ChatGPT. 
             </p>
             <p>
               The timeline is annotated with the ChatGPT events, shown as small
-              orange triangles on the timeline. Click to seek to these events
-              directly.
-            </p>
-            <p>
-              * Note: Seeking may take a few seconds as it plays the session at a high speed until it reaches the desired timestamp.
+              triangles on the timeline. Click to seek to these events
+              directly. The orange triangles indicate a copy event, purple indicates paste events, and green indicates GPT Inquiries. Use the legend to review this information during the replay session.
             </p>
           </div>
         </div>
@@ -168,26 +176,22 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Horizontal Bar Graphs */}
+          {/* Participant Statistics */}
           {selectedParticipant && (
-            <div className="mb-6 space-y-2">
-              <HorizontalBar
-                label="Perceived Ownership"
-                current={selectedParticipant.po || 0}
-                max={7}
-                color="#6366f1"
-              />
-              <HorizontalBar
-                label="User Words"
-                current={selectedParticipant.userWords || 0}
-                max={selectedParticipant.totalWords || 1}
-                color="#8b5cf6"
-              />
-              <HorizontalBar
-                label="GPT Words"
-                current={selectedParticipant.gptWords || 0}
-                max={selectedParticipant.totalWords || 1}
-                color="#10a37f"
+            <div className="mb-6">
+              <ParticipantStatsPanel
+                stats={{
+                  po: selectedParticipant.po || 0,
+                  userWords: selectedParticipant.userWords || 0,
+                  gptWords: selectedParticipant.gptWords || 0,
+                  totalWords: selectedParticipant.totalWords || 0,
+                  selfEfficacy: selectedParticipant.selfEfficacy || 0,
+                  tamOverall: selectedParticipant.tamOverall || 0,
+                  csiTotal: selectedParticipant.csiTotal || 0,
+                  gptInquiry: selectedParticipant.gptInquiry || 0,
+                  totalTime: selectedParticipant.totalTime || 0,
+                  userPercent: selectedParticipant.userPercent || 0,
+                }}
               />
             </div>
           )}
