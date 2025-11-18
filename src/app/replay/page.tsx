@@ -20,11 +20,12 @@ const Replay = dynamic(() => import('@/components/replay'), {
   loading: () => <div>Loading Replay Editor...</div>,
 });
 
+//TODO: Fix P44 having triangles off the seek bar
 
 async function loadCSV() {
   try {
-    // Fetch the CSV file
-    const response = await fetch("/data/replay_data.csv");
+    // Fetch the CSV file (using the fixed version)
+    const response = await fetch("/data/replay_data_fixed.csv");
     const csvText = await response.text();
 
     // Parse CSV using Papaparse
@@ -46,8 +47,6 @@ async function loadCSV() {
     return null;
   }
 }
-
-//TODO: 
 
 interface ParticipantOption {
   value: string;
@@ -102,7 +101,7 @@ export default function Home() {
         const currentTimeSec = currentTimeMs / 1000;
         const progress = (currentTimeSec / totalDurationRef.current) * 100;
 
-        // Functional updating to avoid unnecessary re-renders
+        // Avoid unnecessary re-renders
         setCurrentProgress((prev) => {
           const newProgress = Math.min(progress, 100);
           if (Math.abs(newProgress - prev) > 0.01) {
@@ -129,7 +128,7 @@ export default function Home() {
     requestAnimationFrame(updateProgress);
   };
 
-  // Load participant list once on mount
+  // Load participant list on mount
   useEffect(() => {
     setIsClient(true);
 
@@ -304,19 +303,11 @@ export default function Home() {
       dataArrayRef.current = data;
 
       // Set initial editor state from first row
-      if (data[0] && data[0].current_editor) {
-        try {
-          const editorState = parseRecordingObj(data[0].current_editor);
-          const initialLines = JSON.parse(editorState);
-          const initialState = ('\n\n\n\n');
-          const editor = playCodeMirrorRef.current?.getEditor();
-          if (editor) {
-            editor.setValue(initialState);
-          }
-        } catch (e) {
-          console.error("Failed to parse initial editor state:", e);
-          console.error("Raw value:", data[0].current_editor);
-        }
+      const editor = playCodeMirrorRef.current?.getEditor();
+      if (editor) {
+        // Always start with blank state
+        const initialState = ('\n\n\n\n');
+        editor.setValue(initialState);
       }
 
       const newRecordings: string[] = [];
@@ -329,28 +320,17 @@ export default function Home() {
             let record = element.recording_obj;
 
             if (!record) {
-              console.warn("Skipping null recording_obj for element");
+              console.warn(`Skipping empty recording_obj at op_index ${element.op_index}`);
               break;
             }
 
-            // Convert single quotes to double quotes for valid JSON
-            record = record.replace(/: '([\s\S]*?)'/g, (match, content) => {
-              if (match === ": '[") return match;
-              const escaped = content.replace(/"/g, '\\"');
-              return `: '${escaped}'`;
-            });
-
-            // Replace structural single quotes with double quotes
-            record = record.replace(/\{'/g, '{"');
-            record = record.replace(/':/g, '":');
-            record = record.replace(/, '/g, ', "');
-            record = record.replace(/\['/g, '["');
-            record = record.replace(/'(\})/g, '"$1');
-            record = record.replace(/'(\])/g, '"$1');
-            record = record.replace(/'(,)/g, '"$1');
-            record = record.replace(/: '/g, ': "');
-
-            newRecordings.push(record);
+            try {
+              JSON.parse(record);
+              newRecordings.push(record);
+            } catch (e) {
+              console.warn(`Skipping malformed recording_obj at op_index ${element.op_index}:`, e);
+              // Continue without this recording
+            }
             break;
           case "gpt":
               if(element.op_type === "gpt_inquiry" || element.op_type === "gpt_response"){
@@ -446,26 +426,19 @@ export default function Home() {
     requestAnimationFrame(syncMessages);
   };
 
-    // Helper function to parse recording_obj from CSV data
     const parseRecordingObj = (record: string): string => {
-      // Convert single quotes to double quotes for valid JSON
-      record = record.replace(/: '([\s\S]*?)'/g, (match, content) => {
-        if (match === ": '[") return match;
-        const escaped = content.replace(/"/g, '\\"');
-        return `: '${escaped}'`;
-      });
-
-      // Replace structural single quotes with double quotes
-      record = record.replace(/\{'/g, '{"');
-      record = record.replace(/':/g, '":');
-      record = record.replace(/, '/g, ', "');
-      record = record.replace(/\['/g, '["');
-      record = record.replace(/'(\})/g, '"$1');
-      record = record.replace(/'(\])/g, '"$1');
-      record = record.replace(/'(,)/g, '"$1');
-      record = record.replace(/: '/g, ': "');
-
       return record;
+    };
+
+    // Helper function specifically for parsing current_editor array
+    const parseEditorStateArray = (arrayStr: string): string[] => {
+      try {
+        return JSON.parse(arrayStr);
+      } catch (e) {
+        // If parsing fails, return empty array
+        console.warn("Failed to parse editor state array, returning empty state");
+        return ['', '', '', ''];
+      }
     };
 
     // Helper function to build recording from a specific index
@@ -475,8 +448,15 @@ export default function Home() {
       for (let i = startIndex; i < data.length; i++) {
         const element = data[i];
         if (element.op_loc === "editor" && element.recording_obj) {
-          const record = parseRecordingObj(element.recording_obj);
-          newRecordings.push(record);
+          try {
+            const record = parseRecordingObj(element.recording_obj);
+            // Validate JSON before adding
+            JSON.parse(record);
+            newRecordings.push(record);
+          } catch (e) {
+            console.warn(`Skipping malformed recording_obj at index ${i}:`, e);
+            // Continue without this recording
+          }
         }
       }
 
@@ -543,7 +523,7 @@ export default function Home() {
 
       console.log(`Seeking to element index ${seekIndex} at time ${data[seekIndex]?.time || 0}s`);
 
-      // Find element with current_editor (backtrack if needed)
+      // Find element with current_editor
       let editorStateIndex = seekIndex;
       while (editorStateIndex >= 0 && !data[editorStateIndex].current_editor) {
         editorStateIndex--;
@@ -551,16 +531,10 @@ export default function Home() {
 
       // Set editor to target state
       if (editorStateIndex >= 0 && data[editorStateIndex].current_editor) {
-        try {
-          const editorState = parseRecordingObj(data[editorStateIndex].current_editor);
-          const lines = JSON.parse(editorState);
-          const stateText = lines.join('\n');
-          editor.setValue(stateText);
-
-          console.log(`Set editor to state from index ${editorStateIndex}`);
-        } catch (e) {
-          console.error("Failed to parse editor state at seek position:", e);
-        }
+        const lines = parseEditorStateArray(data[editorStateIndex].current_editor);
+        const stateText = lines.join('\n');
+        editor.setValue(stateText);
+        console.log(`Set editor to state from index ${editorStateIndex}`);
       }
 
       // Build new recording from seek position forward
@@ -576,7 +550,7 @@ export default function Home() {
       newCodePlayer.addOperations(newRecording);
       console.log(`Added operations to new CodePlayer`);
 
-      // Set CodePlayer's internal time to match seek position (Approach B)
+      // Set CodePlayer's internal time to match seek position
       newCodePlayer.lastOperationTime = targetTimeMs;
       newCodePlayer.playedTimeBeforeOperation = 0;
       console.log(`Set CodePlayer lastOperationTime to ${targetTimeMs}ms`);
