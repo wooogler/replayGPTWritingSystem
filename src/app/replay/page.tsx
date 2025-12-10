@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { Message, CSVdata, TimelineEvent, ParticipantStats } from "@/components/types";
@@ -53,7 +53,7 @@ interface ParticipantOption {
   label: string;
 }
 
-export default function Home() {
+function ReplayPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const participantParam = searchParams.get("participant") || "p0";
@@ -783,5 +783,13 @@ export default function Home() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ReplayPage />
+    </Suspense>
   );
 }
