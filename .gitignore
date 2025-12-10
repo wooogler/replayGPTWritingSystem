@@ -12,6 +12,7 @@
 /.claude
 /.vscode
 
+
 # testing
 /coverage
 
@@ -43,4 +44,15 @@ yarn-error.log*
 next-env.d.ts
 
 # hidden data
-src/python/hidden_data/
+src/python/
+python/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
