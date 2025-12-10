@@ -79,7 +79,7 @@ export default function ParticipantStatsPanel({ stats }: ParticipantStatsPanelPr
               </td>
               <td className="px-4 py-3 text-sm text-gray-900 text-right">
                 {Math.floor((stats.totalTime / 60))}m{" "}
-                {Math.floor((stats.totalTime % 60))}s
+                {Math.round((stats.totalTime % 60))}s
               </td>
             </tr>
           </tbody>

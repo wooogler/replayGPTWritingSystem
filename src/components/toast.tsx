@@ -27,7 +27,7 @@ export default function Toast({ message, isVisible, onClose, duration = 2000 }: 
 
   return (
     <div
-      className={`fixed top-20 right-6 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-300 z-50 ${
+      className={`fixed top-20 right-6 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-300 z-[100] ${
         show ? "opacity-100" : "opacity-0"
       }`}
     >

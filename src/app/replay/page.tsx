@@ -366,12 +366,11 @@ export default function Home() {
       codePlayerRef.current = codePlayer;
       codePlayer.addOperations(combinedRecording);
 
-      // Get total duration
-      const durationMs = codePlayer.getDuration();
-      const duration = durationMs / 1000;
+      // Get total duration from last event in data (includes all events, not just editor)
+      const duration = data.length > 0 ? data[data.length - 1].time : 0;
       totalDurationRef.current = duration;
       setTotalDuration(duration);
-      console.log("Total duration:", duration, "seconds (", durationMs, "ms)");
+      console.log("Total duration:", duration, "seconds (from last event at", duration, "s)");
 
       // Update participant stats with actual playback duration
       setParticipantStats(prev => ({
@@ -488,7 +487,7 @@ export default function Home() {
       }
     };
 
-    const handleSeek = (percentage: number) => {
+    const handleSeek = async (percentage: number) => {
       console.log("Seeking to:", percentage.toFixed(3), "%");
 
       if (totalDuration === 0 || dataArrayRef.current.length === 0) return;
@@ -510,6 +509,9 @@ export default function Home() {
       if (codePlayerRef.current) {
         codePlayerRef.current.pause();
       }
+
+      // Wait for pause to take effect and prevent extra characters
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Find the element index closest to target time
       let seekIndex = 0;
