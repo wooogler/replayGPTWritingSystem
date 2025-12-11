@@ -49,17 +49,12 @@ export default function SliderComponent({
     onSpeedChange(selectedOption.value);
   }
 
-  const handlePlay = () => {
-    console.log("Play button clicked");
-    setPlaying(true);
-    onPlayChange(true);
+  const handlePlayPause = () => {
+    const newPlayingState = !playing;
+    console.log(newPlayingState ? "Play button clicked" : "Pause button clicked");
+    setPlaying(newPlayingState);
+    onPlayChange(newPlayingState);
   };
-
-  const handlePause = () => {
-    console.log("Pause button clicked");
-    setPlaying(false);
-    onPlayChange(false);
-  }
 
   const handleJumpToStart = () => {
     console.log("Jump to start");
@@ -129,17 +124,12 @@ export default function SliderComponent({
         {/* Playback controls */}
         <div className="justify-center flex gap-1 w-[90%]">
           <button
-            id="play"
-            onClick={handlePlay}
-            className="px-2"
+            id="play-pause"
+            onClick={handlePlayPause}
+            className="px-2 flex items-center justify-center"
+            style={{ width: '40px', height: '32px' }}
           >
-            <FaPlay size={19} />
-          </button>
-          <button
-            id="pause"
-            onClick={handlePause}
-          >
-            <FaPause size={21} />
+            {playing ? <FaPause size={22} /> : <FaPlay size={20} />}
           </button>
           <button
             id="jump-to-start"

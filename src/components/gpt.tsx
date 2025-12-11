@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import Image from "next/image";
-import { Message } from "@/components/types";
+import { Message, PasteText } from "@/components/types";
 
 type GPTProps = {
   messages?: Message[];
-  pasteTexts?: string[];
+  pasteTexts?: PasteText[];
 };
 
 export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
@@ -17,7 +17,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
   }, [messages]);
 
   // Function to highlight pasted text portions within message content
-  const highlightPastedText = (content: string): React.ReactNode => {
+  const highlightPastedText = (content: string, messageRole: "user" | "assistant"): React.ReactNode => {
     if (!pasteTexts || pasteTexts.length === 0) {
       return content;
     }
@@ -25,17 +25,23 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
     let result: React.ReactNode = content;
     let highlightCount = 0;
 
-    for (const pasteText of pasteTexts) {
-      if (!pasteText || pasteText.trim().length === 0) continue;
+    for (const pasteData of pasteTexts) {
+      if (!pasteData || !pasteData.text || pasteData.text.trim().length === 0) continue;
 
-      const trimmedPaste = pasteText.trim();
+      const trimmedPaste = pasteData.text.trim();
 
       // Convert paste text format to match message format:
       const formattedPaste = trimmedPaste.replace(/\\n/g, '\n');
-      console.log(formattedPaste.length)
 
-      const normalizedPaste = formattedPaste.replace(/\s+/g, ' ').slice(0,formattedPaste.length - 6);
+      const normalizedPaste = formattedPaste.replace(/\s+/g, ' ').slice(0, formattedPaste.length - 6);
       const lowerPaste = normalizedPaste.toLowerCase();
+
+
+      const shouldHighlight =
+        (messageRole === "user" && pasteData.destination === "gpt") ||
+        (messageRole === "assistant" && pasteData.destination === "editor");
+
+      if (!shouldHighlight) continue;
 
       if (typeof result === 'string') {
         const normalizedContent = result.replace(/\s+/g, ' ');
@@ -45,11 +51,15 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
         if (matchIndex !== -1) {
           highlightCount++;
 
+          const backgroundColor = messageRole === "user"
+            ? 'rgba(59, 130, 246, 0.35)'  
+            : 'rgba(249, 115, 22, 0.35)'; 
+
           result = (
             <span
               key={`highlight-${highlightCount}`}
               className="rounded px-1"
-              style={{ backgroundColor: 'rgba(255, 220, 60, 0.60)' }}
+              style={{ backgroundColor }}
             >
               {result}
             </span>
@@ -113,7 +123,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                         </div>
                         {/* Message content */}
                         <div className="whitespace-pre-wrap text-[20px]">
-                          {highlightPastedText(m.content)}
+                          {highlightPastedText(m.content, "user")}
                         </div>
                       </div>
                     </div>
@@ -134,7 +144,7 @@ export default function GPT({ messages = [], pasteTexts = [] }: GPTProps) {
                         </div>
                         {/* Message content */}
                         <div className="whitespace-pre-wrap text-[20px]">
-                          {highlightPastedText(m.content)}
+                          {highlightPastedText(m.content, "assistant")}
                         </div>
                       </div>
                     </div>

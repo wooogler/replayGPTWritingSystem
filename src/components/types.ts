@@ -10,6 +10,11 @@ export type TimelineEvent = {
   type: "gpt_inquiry" | "copy" | "paste";
 };
 
+export type PasteText = {
+  text: string;
+  destination: "editor" | "gpt";
+};
+
 export type ParticipantStats = {
   po: number;
   userWords: number;

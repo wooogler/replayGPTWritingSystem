@@ -20,8 +20,10 @@ export default function Toast({ message, isVisible, onClose, duration = 2000 }: 
       }, duration);
 
       return () => clearTimeout(timer);
+    } else {
+      setShow(false);
     }
-  }, [isVisible, duration, onClose]);
+  }, [isVisible, duration]);
 
   if (!isVisible && !show) return null;
 

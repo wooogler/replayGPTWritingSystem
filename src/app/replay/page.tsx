@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Papa from "papaparse";
-import { Message, CSVdata, TimelineEvent, ParticipantStats } from "@/components/types";
+import { Message, CSVdata, TimelineEvent, ParticipantStats, PasteText } from "@/components/types";
 import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
@@ -74,13 +74,17 @@ function ReplayPage() {
   const allMessagesRef = useRef<Message[]>([]);
   const messagePlaybackActive = useRef(false);
   const timelineEventsRef = useRef<TimelineEvent[]>([]);
-  const pasteTextsRef = useRef<string[]>([]);
+  const pasteTextsRef = useRef<PasteText[]>([]);
   const [showCopyToast, setShowCopyToast] = useState(false);
+  const [showResumeToast, setShowResumeToast] = useState(false);
   const lastCopyIndexRef = useRef(0);
   const dataArrayRef = useRef<any[]>([]);
   const [isGraphsVisible, setIsGraphsVisible] = useState(false);
   const [participants, setParticipants] = useState<ParticipantOption[]>([]);
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantOption | null>(null);
+  const progressAnimationFrameRef = useRef<number | null>(null);
+  const isSeekingRef = useRef(false);
+  const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [participantStats, setParticipantStats] = useState<ParticipantStats>({
     po: 0,
     userWords: 0,
@@ -95,6 +99,11 @@ function ReplayPage() {
   });
 
   const startProgressTracking = () => {
+    // Cancel any existing animation frame
+    if (progressAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(progressAnimationFrameRef.current);
+    }
+
     const updateProgress = () => {
       if (totalDurationRef.current > 0 && codePlayerRef.current) {
         const currentTimeMs = codePlayerRef.current.getCurrentTime() || 0;
@@ -123,9 +132,9 @@ function ReplayPage() {
           }
         }
       }
-      requestAnimationFrame(updateProgress);
+      progressAnimationFrameRef.current = requestAnimationFrame(updateProgress);
     };
-    requestAnimationFrame(updateProgress);
+    progressAnimationFrameRef.current = requestAnimationFrame(updateProgress);
   };
 
   // Load participant list on mount
@@ -250,7 +259,7 @@ function ReplayPage() {
 
   const getTimelineEvents = (data) => {
     let newTimelineEvents: TimelineEvent[] = [];
-    let newPasteTexts: string[] = [];
+    let newPasteTexts: PasteText[] = [];
     for (const element of data) {
       if (element.op_type === "y") {
         newTimelineEvents.push({ time: element.time, type: "copy" });
@@ -258,7 +267,10 @@ function ReplayPage() {
 
       if (element.op_type === "p") {
         newTimelineEvents.push({ time: element.time, type: "paste" });
-        newPasteTexts.push(element.add || "");
+        newPasteTexts.push({
+          text: element.add || "",
+          destination: element.op_loc as "editor" | "gpt"
+        });
       }
       if (element.op_type === "gpt_inquiry") {
         newTimelineEvents.push({ time: element.time, type: "gpt_inquiry" });
@@ -490,11 +502,25 @@ function ReplayPage() {
     const handleSeek = async (percentage: number) => {
       console.log("Seeking to:", percentage.toFixed(3), "%");
 
+      // Prevent concurrent seeks
+      if (isSeekingRef.current) {
+        console.log("Already seeking, ignoring this seek request");
+        return;
+      }
+
       if (totalDuration === 0 || dataArrayRef.current.length === 0) return;
 
       const data = dataArrayRef.current;
       const editor = playCodeMirrorRef.current?.getEditor();
       if (!editor) return;
+
+      isSeekingRef.current = true;
+
+      // Cancel any pending resume timeout
+      if (resumeTimeoutRef.current) {
+        clearTimeout(resumeTimeoutRef.current);
+        resumeTimeoutRef.current = null;
+      }
 
       // Calculate target time
       const targetTimeSec = (percentage / 100) * totalDuration;
@@ -505,43 +531,55 @@ function ReplayPage() {
       // Save current playback state
       const wasPlaying = codePlayerRef.current?.getStatus() === 'PLAY';
 
-      // Pause current playback
-      if (codePlayerRef.current) {
-        codePlayerRef.current.pause();
+      // Stop progress tracking during seek
+      if (progressAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(progressAnimationFrameRef.current);
+        progressAnimationFrameRef.current = null;
       }
 
-      // Wait for pause to take effect and prevent extra characters
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Pause current playback and destroy old CodePlayer
+      if (codePlayerRef.current) {
+        codePlayerRef.current.pause();
+        // Give it time to fully stop
+        await new Promise(resolve => setTimeout(resolve, 200));
+        codePlayerRef.current = null;
+      }
 
-      // Find the element index closest to target time
-      let seekIndex = 0;
+      // Find the last element BEFORE the target time (not including elements AT target time)
+      // This ensures we set the editor to the state before, then replay from target time forward
+      let seekIndex = -1;
       for (let i = 0; i < data.length; i++) {
-        if (data[i].time <= targetTimeSec) {
+        if (data[i].time < targetTimeSec) {
           seekIndex = i;
         } else {
           break;
         }
       }
 
-      console.log(`Seeking to element index ${seekIndex} at time ${data[seekIndex]?.time || 0}s`);
+      console.log(`Seeking to element index ${seekIndex} (before time ${targetTimeSec.toFixed(2)}s)`);
 
-      // Find element with current_editor
+      // Find element with current_editor at or before seekIndex
       let editorStateIndex = seekIndex;
       while (editorStateIndex >= 0 && !data[editorStateIndex].current_editor) {
         editorStateIndex--;
       }
 
-      // Set editor to target state
+      // Set editor to target state (state before the target time)
       if (editorStateIndex >= 0 && data[editorStateIndex].current_editor) {
         const lines = parseEditorStateArray(data[editorStateIndex].current_editor);
         const stateText = lines.join('\n');
         editor.setValue(stateText);
-        console.log(`Set editor to state from index ${editorStateIndex}`);
+        console.log(`Set editor to state from index ${editorStateIndex} (time ${data[editorStateIndex]?.time || 0}s)`);
+      } else {
+        // No editor state found, start from blank
+        editor.setValue('\n\n\n\n');
+        console.log('No editor state found, starting from blank');
       }
 
-      // Build new recording from seek position forward
-      const newRecording = buildRecordingFromIndex(data, seekIndex);
-      console.log(`Built new recording from index ${seekIndex}`);
+      // Build new recording from seekIndex + 1 (first element at or after target time)
+      const recordingStartIndex = seekIndex + 1;
+      const newRecording = buildRecordingFromIndex(data, recordingStartIndex);
+      console.log(`Built new recording from index ${recordingStartIndex} (time ${data[recordingStartIndex]?.time || 0}s)`);
 
       // Create new CodePlayer instance
       const newCodePlayer = new CodePlay(editor, {
@@ -580,15 +618,27 @@ function ReplayPage() {
       // Update progress
       setCurrentProgress(percentage);
 
-      // Resume playback after delay if was playing
-      if (wasPlaying) {
-        setTimeout(() => {
-          newCodePlayer.play();
-          console.log("Resumed playback after delay");
-        }, 500);
-      }
+      // Restart progress tracking to ensure timeline updates continue
+      startProgressTracking();
 
       console.log(`Seek complete to ${targetTimeSec.toFixed(2)}s`);
+
+      // Resume playback after delay if was playing
+      if (wasPlaying) {
+        resumeTimeoutRef.current = setTimeout(() => {
+          setShowResumeToast(true);
+          if (codePlayerRef.current) {
+            codePlayerRef.current.play();
+            console.log("Resumed playback after seek");
+          }
+          resumeTimeoutRef.current = null;
+        }, 200);
+      }
+
+      // Release the seek lock after a short delay to prevent rapid successive seeks
+      setTimeout(() => {
+        isSeekingRef.current = false;
+      }, 300);
     };
 
   useEffect(() => {
@@ -609,6 +659,14 @@ function ReplayPage() {
         message="Text copied"
         isVisible={showCopyToast}
         onClose={() => setShowCopyToast(false)}
+        duration={3000}
+      />
+
+      {/* Toast notification for resuming playback */}
+      <Toast
+        message="Resuming playback"
+        isVisible={showResumeToast}
+        onClose={() => setShowResumeToast(false)}
         duration={2000}
       />
 
