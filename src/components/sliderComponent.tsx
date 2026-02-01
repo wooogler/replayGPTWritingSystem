@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Select from "react-select";
 import { FaPlay, FaPause } from "react-icons/fa6";
 import { FaTachometerAlt, FaFastBackward, FaFastForward } from "react-icons/fa";
-import { TimelineEvent } from "./types";
+import { TimelineEvent, TypingSession, IdlePeriod, TypingDensity } from "./types";
 
 const speeds = [
   { value: 0.5, label: ".5x" },
@@ -22,6 +22,9 @@ interface SliderProps {
   currentProgress?: number;
   totalDuration?: number; // seconds
   timelineEvents?: TimelineEvent[];
+  typingSessions?: TypingSession[];
+  idlePeriods?: IdlePeriod[];
+  typingDensity?: TypingDensity[];
 }
 
 export default function SliderComponent({
@@ -30,7 +33,10 @@ export default function SliderComponent({
   onSeek,
   currentProgress = 0,
   totalDuration = 0,
-  timelineEvents = []
+  timelineEvents = [],
+  typingSessions = [],
+  idlePeriods = [],
+  typingDensity = []
 }: SliderProps) {
   const [isClient, setIsClient] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -202,18 +208,69 @@ export default function SliderComponent({
               ref={seekBarRef}
               onClick={handleSeek}
               onMouseDown={handleMouseDown}
-              className="seek-bar h-2 rounded cursor-pointer w-full relative bg-gray-600"
+              className="seek-bar h-2 rounded cursor-pointer w-full relative bg-gray-400"
             >
-              {/* Progress fill */}
-              <div
-                className="absolute h-full bg-[#2196f3] rounded"
-                style={{
-                  width: `${currentProgress}%`,
-                  transition: 'width 0.1s ease',
-                  top: 0,
-                  left: 0
-                }}
-              />
+              {/* Typing density histogram */}
+              {typingDensity.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 h-10 mb-1 flex items-end pointer-events-none">
+                  {typingDensity.map((segment, index) => (
+                    <div
+                      key={`density-${index}`}
+                      className="flex-1 bg-blue-400"
+                      style={{
+                        height: `${Math.max(segment.normalized * 100, segment.count > 0 ? 10 : 2)}%`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Activity segments container (with overflow hidden for rounded corners) */}
+              <div className="absolute inset-0 rounded overflow-hidden">
+                {/* Typing sessions (blue) */}
+                {typingSessions.map((session, index) => {
+                  const startPercent = totalDuration > 0 ? (session.startTime / totalDuration) * 100 : 0;
+                  const endPercent = totalDuration > 0 ? (session.endTime / totalDuration) * 100 : 0;
+                  const width = endPercent - startPercent;
+                  return (
+                    <div
+                      key={`typing-${index}`}
+                      className="absolute h-full bg-blue-500"
+                      style={{
+                        left: `${startPercent}%`,
+                        width: `${Math.max(width, 0.5)}%`,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Idle periods (black) */}
+                {idlePeriods.map((idle, index) => {
+                  const startPercent = totalDuration > 0 ? (idle.start / totalDuration) * 100 : 0;
+                  const endPercent = totalDuration > 0 ? (idle.end / totalDuration) * 100 : 0;
+                  const width = endPercent - startPercent;
+                  return (
+                    <div
+                      key={`idle-${index}`}
+                      className="absolute h-full bg-black"
+                      style={{
+                        left: `${startPercent}%`,
+                        width: `${Math.max(width, 0.5)}%`,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Progress overlay (semi-transparent white) */}
+                <div
+                  className="absolute h-full bg-white/40"
+                  style={{
+                    width: `${currentProgress}%`,
+                    transition: 'width 0.1s ease',
+                    top: 0,
+                    left: 0
+                  }}
+                />
+              </div>
 
               {/* Timeline event markers */}
               {timelineEvents.map((event, index) => {
@@ -284,7 +341,7 @@ export default function SliderComponent({
           </div>
       </div>
 
-      {/* Custom Tooltip */}
+      {/* Custom Tooltip for timeline events */}
       {hoveredEvent && (
         <div
           className="fixed bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 pointer-events-none"
@@ -297,7 +354,8 @@ export default function SliderComponent({
           <div className="text-xs text-gray-300">at {hoveredEvent.time}</div>
         </div>
       )}
-      </div>
+
+            </div>
     </>
   );
 }

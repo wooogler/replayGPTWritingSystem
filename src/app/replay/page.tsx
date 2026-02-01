@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Papa from "papaparse";
-import { Message, CSVdata, TimelineEvent, ParticipantStats, PasteText } from "@/components/types";
+import { Message, CSVdata, TimelineEvent, ParticipantStats, PasteText, TypingSession, IdlePeriod, TypingDensity } from "@/components/types";
 import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
@@ -75,6 +75,9 @@ function ReplayPage() {
   const messagePlaybackActive = useRef(false);
   const timelineEventsRef = useRef<TimelineEvent[]>([]);
   const pasteTextsRef = useRef<PasteText[]>([]);
+  const [typingSessions, setTypingSessions] = useState<TypingSession[]>([]);
+  const [idlePeriods, setIdlePeriods] = useState<IdlePeriod[]>([]);
+  const [typingDensity, setTypingDensity] = useState<TypingDensity[]>([]);
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [showResumeToast, setShowResumeToast] = useState(false);
   const lastCopyIndexRef = useRef(0);
@@ -257,6 +260,114 @@ function ReplayPage() {
     return () => clearInterval(checkEditor);
   }, [essayNum, participantParam, participants]);
 
+  const getTypingSessionsAndIdlePeriods = (data: any[]) => {
+    const IDLE_THRESHOLD = 60; // 1 minute in seconds
+    const GAP_THRESHOLD = 20; // 20 seconds gap to split typing sessions
+
+    // Collect editor event timestamps for typing sessions
+    const editorEventTimes: number[] = data
+      .filter(e => e.op_loc === 'editor')
+      .map(e => e.time)
+      .sort((a, b) => a - b);
+
+    // Collect ALL event timestamps for idle detection
+    const allEventTimes: number[] = data
+      .map(e => e.time)
+      .sort((a, b) => a - b);
+
+    const sessions: TypingSession[] = [];
+    const idles: IdlePeriod[] = [];
+
+    // Calculate typing sessions (editor events only)
+    if (editorEventTimes.length > 0) {
+      let currentSession = {
+        startTime: editorEventTimes[0],
+        endTime: editorEventTimes[0],
+      };
+
+      for (let i = 1; i < editorEventTimes.length; i++) {
+        const timeSinceLastEvent = editorEventTimes[i] - currentSession.endTime;
+
+        if (timeSinceLastEvent <= GAP_THRESHOLD) {
+          // Same session - extend end time
+          currentSession.endTime = editorEventTimes[i];
+        } else {
+          // New session
+          sessions.push(currentSession);
+          currentSession = {
+            startTime: editorEventTimes[i],
+            endTime: editorEventTimes[i],
+          };
+        }
+      }
+      // Add last session
+      sessions.push(currentSession);
+    }
+
+    // Calculate idle periods (gaps in ALL events > 1 minute)
+    if (allEventTimes.length > 0) {
+      // Check for idle at the beginning (from time 0 to first event)
+      if (allEventTimes[0] > IDLE_THRESHOLD) {
+        idles.push({
+          start: 0,
+          end: allEventTimes[0],
+          duration: allEventTimes[0],
+        });
+      }
+
+      // Check for idle periods between events
+      for (let i = 0; i < allEventTimes.length - 1; i++) {
+        const gap = allEventTimes[i + 1] - allEventTimes[i];
+        if (gap > IDLE_THRESHOLD) {
+          idles.push({
+            start: allEventTimes[i],
+            end: allEventTimes[i + 1],
+            duration: gap,
+          });
+        }
+      }
+    }
+
+    setTypingSessions(sessions);
+    setIdlePeriods(idles);
+
+    // Calculate typing density (for YouTube-style activity graph)
+    const NUM_SEGMENTS = 100; // Divide timeline into 100 segments
+    const lastEventTime = allEventTimes.length > 0 ? allEventTimes[allEventTimes.length - 1] : 0;
+    const segmentDuration = lastEventTime / NUM_SEGMENTS;
+
+    if (segmentDuration > 0) {
+      const densityCounts: number[] = new Array(NUM_SEGMENTS).fill(0);
+
+      // Count editor events per segment
+      editorEventTimes.forEach(time => {
+        const segmentIndex = Math.min(Math.floor(time / segmentDuration), NUM_SEGMENTS - 1);
+        densityCounts[segmentIndex]++;
+      });
+
+      // Find max for normalization
+      const maxCount = Math.max(...densityCounts, 1);
+
+      // Create density data with normalized values
+      const density: TypingDensity[] = densityCounts.map((count, index) => ({
+        segmentIndex: index,
+        count,
+        normalized: count / maxCount,
+      }));
+
+      setTypingDensity(density);
+      console.log("Typing density calculated:", NUM_SEGMENTS, "segments, max count:", maxCount);
+    }
+
+    console.log("Typing sessions found:", sessions.length);
+    console.log("Idle periods found:", idles.length);
+    if (idles.length > 0) {
+      console.log("Sample idle periods:", idles.slice(0, 3).map(p =>
+        `${Math.floor(p.duration / 60)}m ${Math.floor(p.duration % 60)}s`
+      ));
+    }
+  };
+
   const getTimelineEvents = (data) => {
     let newTimelineEvents: TimelineEvent[] = [];
     let newPasteTexts: PasteText[] = [];
@@ -394,6 +505,7 @@ function ReplayPage() {
       playMessages(newMessages);
 
       getTimelineEvents(data);
+      getTypingSessionsAndIdlePeriods(data);
 
       // Start progress tracking
       startProgressTracking();
@@ -827,6 +939,9 @@ function ReplayPage() {
               currentProgress={currentProgress}
               totalDuration={totalDuration}
               timelineEvents={timelineEventsRef.current}
+              typingSessions={typingSessions}
+              idlePeriods={idlePeriods}
+              typingDensity={typingDensity}
             />
           </div>
           {/* Toggle Legend button */}
