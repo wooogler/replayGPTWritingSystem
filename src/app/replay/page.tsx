@@ -709,6 +709,11 @@ function ReplayPage() {
 
       console.log(`Seeking to element index ${seekIndex} (before time ${targetTimeSec.toFixed(2)}s)`);
 
+      // Save current scroll position before changing editor content
+      const scrollInfo = editor.getScrollInfo();
+      const savedScrollTop = scrollInfo.top;
+      const savedScrollLeft = scrollInfo.left;
+
       // Find element with current_editor at or before seekIndex
       let editorStateIndex = seekIndex;
       while (editorStateIndex >= 0 && !data[editorStateIndex].current_editor) {
@@ -716,16 +721,22 @@ function ReplayPage() {
       }
 
       // Set editor to target state (state before the target time)
-      if (editorStateIndex >= 0 && data[editorStateIndex].current_editor) {
-        const lines = parseEditorStateArray(data[editorStateIndex].current_editor);
-        const stateText = lines.join('\n');
-        editor.setValue(stateText);
-        console.log(`Set editor to state from index ${editorStateIndex} (time ${data[editorStateIndex]?.time || 0}s)`);
-      } else {
-        // No editor state found, start from blank
-        editor.setValue('\n\n\n\n');
-        console.log('No editor state found, starting from blank');
-      }
+      // Use operation() to batch changes and minimize redraws
+      editor.operation(() => {
+        if (editorStateIndex >= 0 && data[editorStateIndex].current_editor) {
+          const lines = parseEditorStateArray(data[editorStateIndex].current_editor);
+          const stateText = lines.join('\n');
+          editor.setValue(stateText);
+          console.log(`Set editor to state from index ${editorStateIndex} (time ${data[editorStateIndex]?.time || 0}s)`);
+        } else {
+          // No editor state found, start from blank
+          editor.setValue('\n\n\n\n');
+          console.log('No editor state found, starting from blank');
+        }
+        
+        // Restore scroll position immediately within the operation
+        editor.scrollTo(savedScrollLeft, savedScrollTop);
+      });
 
       // Build new recording from seekIndex + 1 (first element at or after target time)
       const recordingStartIndex = seekIndex + 1;
