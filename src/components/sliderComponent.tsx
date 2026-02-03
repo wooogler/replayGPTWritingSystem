@@ -290,7 +290,7 @@ export default function SliderComponent({
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={chartData}
-                margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+                margin={{ top: 0, right: 0, left: 0, bottom: 1 }}
                 style={{ outline: 'none' }}
               >
                 <defs>

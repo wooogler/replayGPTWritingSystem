@@ -984,7 +984,7 @@ function ReplayPage() {
         </div>
 
         {/* Controls Section */}
-        <div className="flex items-center w-full py-3 pr-24">
+        <div className="flex items-center w-full pb-3 pt-0 pr-24">
           <SliderComponent
             onSpeedChange={handleSpeedChange}
             onPlayChange={handlePlayChange}
