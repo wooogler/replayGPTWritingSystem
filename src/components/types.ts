@@ -45,6 +45,11 @@ export type TypingDensity = {
   normalized: number;  // 0-1 normalized value for visualization
 };
 
+export type WordCountData = {
+  time: number;           // seconds
+  wordCount: number;      // cumulative word count at this time
+};
+
 export type CSVdata = Array<{
   idx: number;
   essay_num: number;

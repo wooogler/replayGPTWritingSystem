@@ -47,3 +47,11 @@ body {
   margin: 0;
   padding: 0;
 } */
+
+/* Recharts focus outline fix - Issue #5988 */
+.recharts-wrapper:focus,
+.recharts-wrapper svg:focus,
+.recharts-surface:focus,
+.recharts-wrapper *:focus {
+  outline: none !important;
+}

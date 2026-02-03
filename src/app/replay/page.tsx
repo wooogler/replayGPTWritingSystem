@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Papa from "papaparse";
-import { Message, CSVdata, TimelineEvent, ParticipantStats, PasteText, TypingSession, IdlePeriod, TypingDensity } from "@/components/types";
+import { Message, CSVdata, TimelineEvent, ParticipantStats, PasteText, TypingSession, IdlePeriod, TypingDensity, WordCountData } from "@/components/types";
 import Prompt from "@/components/prompt";
 import GPT from "@/components/gpt";
 import SliderComponent from "@/components/sliderComponent";
@@ -78,11 +78,13 @@ function ReplayPage() {
   const [typingSessions, setTypingSessions] = useState<TypingSession[]>([]);
   const [idlePeriods, setIdlePeriods] = useState<IdlePeriod[]>([]);
   const [typingDensity, setTypingDensity] = useState<TypingDensity[]>([]);
+  const [wordCountData, setWordCountData] = useState<WordCountData[]>([]);
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [showResumeToast, setShowResumeToast] = useState(false);
   const lastCopyIndexRef = useRef(0);
   const dataArrayRef = useRef<any[]>([]);
   const [isGraphsVisible, setIsGraphsVisible] = useState(false);
+  const [isWordCountGraphExpanded, setIsWordCountGraphExpanded] = useState(false);
   const [participants, setParticipants] = useState<ParticipantOption[]>([]);
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantOption | null>(null);
   const progressAnimationFrameRef = useRef<number | null>(null);
@@ -368,6 +370,42 @@ function ReplayPage() {
     }
   };
 
+  const getWordCountData = (data: any[]) => {
+    // Filter editor events with current_editor data and sort by time
+    const editorEvents = data
+      .filter(e => e.op_loc === 'editor' && e.current_editor)
+      .sort((a, b) => a.time - b.time);
+
+    const wordCounts: WordCountData[] = [];
+
+    // Add initial point at time 0
+    wordCounts.push({ time: 0, wordCount: 0 });
+
+    for (const event of editorEvents) {
+      try {
+        const lines = JSON.parse(event.current_editor);
+        const text = lines.join(' ');
+        // Count words by splitting on whitespace and filtering empty strings
+        const words = text.split(/\s+/).filter((word: string) => word.length > 0);
+        const wordCount = words.length;
+
+        wordCounts.push({
+          time: event.time,
+          wordCount: wordCount,
+        });
+      } catch (e) {
+        // Skip if parsing fails
+        continue;
+      }
+    }
+
+    setWordCountData(wordCounts);
+    console.log("Word count data calculated:", wordCounts.length, "points");
+    if (wordCounts.length > 0) {
+      console.log("Final word count:", wordCounts[wordCounts.length - 1].wordCount);
+    }
+  };
+
   const getTimelineEvents = (data) => {
     let newTimelineEvents: TimelineEvent[] = [];
     let newPasteTexts: PasteText[] = [];
@@ -506,6 +544,7 @@ function ReplayPage() {
 
       getTimelineEvents(data);
       getTypingSessionsAndIdlePeriods(data);
+      getWordCountData(data);
 
       // Start progress tracking
       startProgressTracking();
@@ -829,7 +868,9 @@ function ReplayPage() {
         </div>
       </header>
 
-      <main className="px-6 py-5 flex h-[calc(100vh-9rem)]">
+      <main className={`px-6 py-5 flex transition-all duration-300 ${
+        isWordCountGraphExpanded ? "h-[calc(100vh-15.5rem)]" : "h-[calc(100vh-9rem)]"
+      }`}>
         {/* Sliding Prompt Panel */}
         <div
           className={`transition-all duration-300 flex-shrink-0 ${
@@ -903,7 +944,7 @@ function ReplayPage() {
         style={{
           width: '25%',
           top: '5.5rem',
-          bottom: '3.6rem',
+          bottom: isWordCountGraphExpanded ? '10rem' : '3.6rem',
           height: 'auto'
         }}
       >
@@ -914,7 +955,9 @@ function ReplayPage() {
       </div>
 
       {/* Controls footer with Legend */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-3 px-6">
+      <div className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg px-6 flex flex-col justify-end transition-all duration-300 ${
+        isWordCountGraphExpanded ? "h-40" : "h-14"
+      }`}>
         {/* Slide-up Legend Panel */}
         <div
           className={`absolute right-6 bg-gray-50 rounded-t-lg border border-gray-200 shadow-xl transition-all duration-300 overflow-hidden ${
@@ -930,30 +973,31 @@ function ReplayPage() {
         </div>
 
         {/* Controls Section */}
-        <div className="flex items-center w-full justify-center">
-          <div className="flex-grow max-w-[calc(100%-120px)] mr-2">
-            <SliderComponent
-              onSpeedChange={handleSpeedChange}
-              onPlayChange={handlePlayChange}
-              onSeek={handleSeek}
-              currentProgress={currentProgress}
-              totalDuration={totalDuration}
-              timelineEvents={timelineEventsRef.current}
-              typingSessions={typingSessions}
-              idlePeriods={idlePeriods}
-              typingDensity={typingDensity}
-            />
-          </div>
-          {/* Toggle Legend button */}
-          <button
-            onClick={() => setIsLegendVisible(!isLegendVisible)}
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 flex items-center justify-center shadow-lg hover:shadow-xl transition-all flex-shrink-0"
-          >
-            <span className="text-sm font-medium">
-              Legend {isLegendVisible ? "▼" : "▲"}
-            </span>
-          </button>
+        <div className="flex items-center w-full py-3 pr-24">
+          <SliderComponent
+            onSpeedChange={handleSpeedChange}
+            onPlayChange={handlePlayChange}
+            onSeek={handleSeek}
+            onGraphToggle={setIsWordCountGraphExpanded}
+            currentProgress={currentProgress}
+            totalDuration={totalDuration}
+            timelineEvents={timelineEventsRef.current}
+            typingSessions={typingSessions}
+            idlePeriods={idlePeriods}
+            typingDensity={typingDensity}
+            wordCountData={wordCountData}
+          />
         </div>
+        
+        {/* Toggle Legend button - Fixed position */}
+        <button
+          onClick={() => setIsLegendVisible(!isLegendVisible)}
+          className="absolute right-6 bottom-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 flex items-center justify-center shadow-lg hover:shadow-xl transition-all"
+        >
+          <span className="text-sm font-medium">
+            Legend {isLegendVisible ? "▼" : "▲"}
+          </span>
+        </button>
       </div>
     </>
   );
