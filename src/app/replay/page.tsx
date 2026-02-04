@@ -880,7 +880,7 @@ function ReplayPage() {
       </header>
 
       <main className={`px-6 py-5 flex transition-all duration-300 ${
-        isWordCountGraphExpanded ? "h-[calc(100vh-15.5rem)]" : "h-[calc(100vh-9rem)]"
+        isWordCountGraphExpanded ? "h-[calc(100vh-19rem)]" : "h-[calc(100vh-9rem)]"
       }`}>
         {/* Sliding Prompt Panel */}
         <div
@@ -955,7 +955,7 @@ function ReplayPage() {
         style={{
           width: '25%',
           top: '5.5rem',
-          bottom: isWordCountGraphExpanded ? '10rem' : '3.6rem',
+          bottom: isWordCountGraphExpanded ? '14rem' : '3.6rem',
           height: 'auto'
         }}
       >
@@ -967,7 +967,7 @@ function ReplayPage() {
 
       {/* Controls footer with Legend */}
       <div className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg px-6 flex flex-col justify-end transition-all duration-300 ${
-        isWordCountGraphExpanded ? "h-40" : "h-14"
+        isWordCountGraphExpanded ? "h-[220px]" : "h-14"
       }`}>
         {/* Slide-up Legend Panel */}
         <div

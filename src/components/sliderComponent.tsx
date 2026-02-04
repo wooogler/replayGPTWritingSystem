@@ -265,13 +265,13 @@ export default function SliderComponent({
     <div className="flex flex-col h-full w-full">
       {/* Word count graph area (appears when expanded) */}
       {wordCountData.length > 0 && (
-        <div 
+        <div
           className={`w-full relative overflow-hidden transition-all duration-300 ${
-            isGraphExpanded ? 'h-[90px]' : 'h-0'
+            isGraphExpanded ? 'h-[150px]' : 'h-0'
           }`}
         >
           <div
-            className={`absolute h-[90px] cursor-pointer outline-none transition-transform duration-300 ${
+            className={`absolute h-[150px] cursor-pointer outline-none transition-transform duration-300 ${
               isGraphExpanded ? 'translate-y-0' : 'translate-y-full'
             }`}
             style={{
